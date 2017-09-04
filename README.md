@@ -11,9 +11,10 @@ Install
     pip install -r requirements.txt
 
 
+
 Run
 ---
 
+    source venv/bin/activate
     ./engageny_chef.py -v --reset --token=<YOURTOKEN>
-
 

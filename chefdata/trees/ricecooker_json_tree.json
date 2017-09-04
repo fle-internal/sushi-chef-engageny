@@ -1,6 +1,48 @@
 {
   "kind": "ChannelNode",
-  "title": "Engage NY (EN)-testing",
-  "language": "en",
-  "children": []
+  "title": "NOT USED Engage NY Web Resource Tree (ELS and CCSSM)",
+  "language": "NOT USED NOT USED en",
+  "children": [
+    {
+      "kind": "TopicNode",
+      "source_id": "https://www.engageny.org/resource/grade-6-mathematics-module-4-topic-f-lesson-18",
+      "title": "Grade 6 Mathematics Module 4, Topic F, Lesson 18",
+      "description": "Grade 6 Mathematics           \u00a0\u00a0Prev  - Grade 6 Mathematics Module 4, Topic F, Overview         Next  - Grade 6 Mathematics Module 4, Topic F, Lesson 19",
+      "language": "en",
+      "children": [
+        {
+          "kind": "DocumentNode",
+          "source_id": "https://www.engageny.org/resource/grade-6-mathematics-module-4-topic-f-lesson-18:math-g6-m4-topic-f-lesson-18-student.pdf",
+          "title": "math-g6-m4-topic-f-lesson-18-student.pdf",
+          "author": "Engage NY",
+          "description": "Grade 6 Mathematics Module 4, Topic F, Lesson 18: Student Version (442.48 KB)",
+          "thumbnail": null,
+          "files": [
+            {
+              "file_type": "DocumentFile",
+              "path": "https://www.engageny.org/file/44251/download/math-g6-m4-topic-f-lesson-18-student.pdf",
+              "language": "en"
+            }
+          ],
+          "language": "en"
+        },
+        {
+          "kind": "DocumentNode",
+          "source_id": "https://www.engageny.org/resource/grade-6-mathematics-module-4-topic-f-lesson-18:math-g6-m4-topic-f-lesson-18-teacher.pdf",
+          "title": "math-g6-m4-topic-f-lesson-18-teacher.pdf",
+          "author": "Engage NY",
+          "description": "Grade 6 Mathematics Module 4, Topic F, Lesson 18: Teacher Version (772.46 KB)",
+          "thumbnail": null,
+          "files": [
+            {
+              "file_type": "DocumentFile",
+              "path": "https://www.engageny.org/file/44256/download/math-g6-m4-topic-f-lesson-18-teacher.pdf",
+              "language": "en"
+            }
+          ],
+          "language": "en"
+        }
+      ]
+    }
+  ]
 }

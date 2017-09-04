@@ -31,6 +31,7 @@ from ricecooker.utils.zip import create_predictable_zip
 # ENGAGE NY settings
 ################################################################################
 ENGAGENY_CC_START_URL = 'https://www.engageny.org/common-core-curriculum'
+ENGAGENY_LICENSE = get_license(licenses.CC_BY_NC_SA, copyright_holder='Engage NY')
 
 
 # Set up webcaches
@@ -54,9 +55,11 @@ SCRAPING_STAGE_OUTPUT = 'ricecooker_json_tree.json'
 
 # LOGGING SETTINGS
 ################################################################################
-# logging.getLogger("cachecontrol.controller").setLevel(logging.WARNING)
-# logging.getLogger("requests.packages").setLevel(logging.WARNING)
-# logger = logging.getLogger('engageny')
+logging.getLogger("cachecontrol.controller").setLevel(logging.WARNING)
+logging.getLogger("requests.packages").setLevel(logging.WARNING)
+from ricecooker.config import LOGGER
+LOGGER.setLevel(logging.DEBUG)
+
 
 
 
@@ -64,10 +67,31 @@ SCRAPING_STAGE_OUTPUT = 'ricecooker_json_tree.json'
 ################################################################################
 get_text = lambda x: "" if x is None else x.get_text().replace('\r', '').replace('\n', ' ').strip()
 
+def get_parsed_html_from_url(url, *args, **kwargs):
+    response = sess.get(url, *args, **kwargs)
+    if response.status_code != 200:
+        LOGGER.error("NOT FOUND:", url)
+    elif not response.from_cache:
+        LOGGER.debug("NOT CACHED:", url)
+    return BeautifulSoup(response.content, "html.parser")
+
+
+def make_fully_qualified_url(url):
+    if url.startswith("//"):
+        print('unexpecded // url', url)
+        return "https:" + url
+    elif url.startswith("/"):
+        return "https://www.engageny.org" + url
+    return url
+
+
+
 
 
 # CRAWLING
 ################################################################################
+
+# def download_unit   for ELA
 
 # def visit_grade
 # def visit_module
@@ -102,13 +126,77 @@ def crawling_part(args, options):
 
 
 
+
+
 # SCRAPING
 ################################################################################
 
-# def download_module
-# def download_unit
-# def download_lesson
+# def download_ela_grade
+# def download_ela_module
+# def download_ela_unit
+# def download_ela_lesson
+
+
+
+# def download_math_grade
+# def download_math_module
+# def download_math_topic
+
+def download_math_lesson(lesson_url):
+    doc = get_parsed_html_from_url(lesson_url)
+    #
+    title_h2 = doc.find('div', class_='pane-title').find('h2')
+    title = get_text(title_h2)
+    #
+    content_div = doc.find('div', class_="pane-content")
+    description = get_text(content_div)
+
+    lesson_data = dict(
+        kind='TopicNode',
+        source_id=lesson_url, # TODO: extract only /path
+        title=title,
+        description=description,
+        language='en',
+        children=[],
+    )
+
+    resources_pane = doc.find('div', class_='pane-downloadable-resources')
+    resources_table = resources_pane.find('table')
+    resources_rows = resources_table.find_all('tr')
+
+    for row in resources_rows:
+        doc_link = row.find_all('td')[1].find('a')
+        # get document source_id from row.find_all('td')[1].find('a')['href]  e.g. 44251
+        title = doc_link['title'].replace('Download ','')
+        doc_path = make_fully_qualified_url(doc_link['href']).split('?')[0]
+        description = get_text(doc_link)
+        if 'pdf' in doc_path:
+            document_node = dict(
+                kind='DocumentNode',
+                source_id=lesson_url+":"+title, # FIXME
+                title=title,
+                author='Engage NY',
+                description=description,
+                thumbnail=None,
+                files=[dict(
+                    file_type='DocumentFile',
+                    path=doc_path,
+                    language='en',
+                )],
+                language='en',
+            )
+            lesson_data['children'].append(document_node)
+
+    return lesson_data
+
+
+
+# MAIN FUNCTION
 # def _build_json_tree
+#     """
+#     Visit web_resource_tree nodes and constuct json objects that coorespon
+#     to ricecooker nodes and files
+#     """
 
 
 def scraping_part(args, options):
@@ -130,14 +218,30 @@ def scraping_part(args, options):
 
     # DO ALL THE SCRAPING
     #
-    # _build_json_tree(ricecooker_json_tree, web_resource_tree['children']) (see ressa chef for example)
-    print('finished building ricecooker_json_tree')
+    # _build_json_tree(ricecooker_json_tree, web_resource_tree['children']) (see TESSA chef for example)
+
+
+    # sample node (should be three folders deep... but for now putting in root)
+    sample_lesson_url = 'https://www.engageny.org/resource/grade-6-mathematics-module-4-topic-f-lesson-18'
+    lesson_node = download_math_lesson(sample_lesson_url)
+    ricecooker_json_tree['children'].append(lesson_node)
+
+
+
+
+    LOGGER.info('Finished building ricecooker_json_tree')
 
     # Write out ricecooker_json_tree.json
     json_file_name = os.path.join(TREES_DATA_DIR, SCRAPING_STAGE_OUTPUT)
     with open(json_file_name, 'w') as json_file:
         json.dump(ricecooker_json_tree, json_file, indent=2)
-        LOGGER.info('Intermediate result stored in ' + json_file_name)
+        LOGGER.info('Scraping result stored in ' + json_file_name)
+
+
+
+
+
+
 
 
 
@@ -145,10 +249,11 @@ def scraping_part(args, options):
 
 # CONSTRUCT CHANNEL FROM RICECOOKER JSON TREE
 ################################################################################
+# Note: the functions below are used in several chefs so might become part of `ricecooker`
 
 def build_tree(parent_node, sourcetree):
     """
-    Parse nodes given in `sourcetree` and add as children of `parent_node`.
+    Parse nodes given in `sourcetree` list and add as children of `parent_node`.
     """
     EXPECTED_NODE_TYPES = ['TopicNode', 'AudioNode', 'DocumentNode', 'HTML5AppNode']
 
@@ -168,13 +273,13 @@ def build_tree(parent_node, sourcetree):
             )
             parent_node.add_child(child_node)
             source_tree_children = source_node.get("children", [])
-            build_tree_for_language(child_node, source_tree_children)
+            build_tree(child_node, source_tree_children)
 
         elif kind == 'AudioNode':
             child_node = nodes.AudioNode(
                 source_id=source_node["source_id"],
                 title=source_node["title"],
-                license=TESSA_LICENSE,
+                license=ENGAGENY_LICENSE,
                 author=source_node.get("author"),
                 description=source_node.get("description"),
                 # derive_thumbnail=True,                    # video-specific data
@@ -187,7 +292,7 @@ def build_tree(parent_node, sourcetree):
             child_node = nodes.DocumentNode(
                 source_id=source_node["source_id"],
                 title=source_node["title"],
-                license=TESSA_LICENSE,
+                license=ENGAGENY_LICENSE,
                 author=source_node.get("author"),
                 description=source_node.get("description"),
                 thumbnail=source_node.get("thumbnail"),
@@ -199,7 +304,7 @@ def build_tree(parent_node, sourcetree):
             child_node = nodes.HTML5AppNode(
                 source_id=source_node["source_id"],
                 title=source_node["title"],
-                license=TESSA_LICENSE,
+                license=ENGAGENY_LICENSE,
                 author=source_node.get("author"),
                 description=source_node.get("description"),
                 thumbnail=source_node.get("thumbnail"),
@@ -270,24 +375,33 @@ class EngageNYChef(SushiChef):
 
 
     def get_channel(self, **kwargs):
+        """
+        Returns a ChannelNode that contains all required channel metadata.
+        """
         channel = ChannelNode(
             source_domain = 'engageny.org',
-            source_id = 'engagny-testing-testing',    # TODO: remove -testing
-            title = 'Engage NY-testing-testing',      # TODO: remove -testing
+            source_id = 'engagny-testing',    # TODO: remove -testing
+            title = 'Engage NY-testing',      # TODO: remove -testing
             thumbnail = './content/engageny_logo.png',
             description = 'EngageNY Common Core Curriculum Content... ELA and CCSSM combined',
             language = 'en'
         )
         return channel
 
+
     def construct_channel(self, **kwargs):
+        """
+        Build the channel tree by adding TopicNodes and ContentNode children.
+        """
         channel = self.get_channel(**kwargs)
+
         # Load ricecooker json tree data for language `lang`
         with open(os.path.join(TREES_DATA_DIR, SCRAPING_STAGE_OUTPUT)) as infile:
             json_tree = json.load(infile)
             if json_tree is None:
                 raise ValueError('Could not find ricecooker json tree')
-        build_tree(channel, json_tree['children'])
+            build_tree(channel, json_tree['children'])
+
         raise_for_invalid_channel(channel)
         return channel
 
@@ -299,7 +413,6 @@ class EngageNYChef(SushiChef):
 if __name__ == '__main__':
     chef = EngageNYChef()
     chef.main()
-
 
 
 
