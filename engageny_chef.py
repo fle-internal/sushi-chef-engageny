@@ -101,13 +101,13 @@ def make_fully_qualified_url(url):
 
 def crawling_part(args, options):
     """
-    Visit all the urls on engageny.org/resource/ and extract content structure.
+    Visit all the urls on engageny.org/resource/ and engageny.org/content, and extract content structure.
     """
     # crawl website to build web_resource_tree =
     web_resource_tree = dict(
-        kind="EngageNYWebRessourceTree",
+        kind="EngageNYWebResourceTree",
         title="Engage NY Web Resource Tree (ELS and CCSSM)",
-        lang='NOT USED ' +  'en',
+        language='en',
         children=[]
     )
 
@@ -206,13 +206,13 @@ def scraping_part(args, options):
     # Read web_resource_trees.json
     with open(os.path.join(TREES_DATA_DIR, CRAWLING_STAGE_OUTPUT)) as json_file:
         web_resource_tree = json.load(json_file)
-        assert web_resource_tree['kind'] == 'EngageNYWebRessourceTree'
+        assert web_resource_tree['kind'] == 'EngageNYWebResourceTree'
 
     # Ricecooker tree
     ricecooker_json_tree = dict(
         kind='ChannelNode',
         title='NOT USED ' +  web_resource_tree['title'],
-        language='NOT USED ' +  web_resource_tree['lang'],
+        language=web_resource_tree['language'],
         children=[],
     )
 
@@ -346,14 +346,14 @@ def add_files(node, file_list):
 
 class EngageNYChef(SushiChef):
     """
-    This class takes care of downloading resources from engageny.org and uplaoding
+    This class takes care of downloading resources from engageny.org and uploading
     them to Kolibri Studio, the content curation server.
     """
 
     def crawl(self, args, options):
         """
         PART 1: CRAWLING
-        Builds the json web redource tree --- the recipe of what is to be downloaded.
+        Builds the json web resource tree --- the recipe of what is to be downloaded.
         """
         crawling_part(args, options)
 
