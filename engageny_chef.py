@@ -157,10 +157,8 @@ def crawling_part(args, options):
         kind="EngageNYWebResourceTree",
         title="Engage NY Web Resource Tree (ELS and CCSSM)",
         language='en',
-        children=[]
     )
 
-    # DO ALL THE CRAWLING...    (see ressa chef for example)
     doc = get_parsed_html_from_url(ENGAGENY_CC_START_URL)
     dual_toc_div = doc.find('div', id='mini-panel-common_core_curriculum')
     ELA_toc = dual_toc_div.find('div', class_='panel-col-first')
@@ -179,11 +177,12 @@ def crawling_part(args, options):
         })
 
     visit_grades(MATH_grades)
+    web_resource_tree['children'] = MATH_grades
 
-    # json_file_name = os.path.join(TREES_DATA_DIR, CRAWLING_STAGE_OUTPUT)
-    # with open(json_file_name, 'w') as json_file:
-    #     json.dump(web_resource_tree, json_file, indent=2)
-    #     LOGGER.info('Crawling results stored in ' + json_file_name)
+    json_file_name = os.path.join(TREES_DATA_DIR, CRAWLING_STAGE_OUTPUT)
+    with open(json_file_name, 'w') as json_file:
+        json.dump(web_resource_tree, json_file, indent=2)
+        LOGGER.info('Crawling results stored in ' + json_file_name)
 
     return MATH_grades
 
