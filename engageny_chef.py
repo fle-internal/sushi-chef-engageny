@@ -13,6 +13,8 @@ from bs4 import BeautifulSoup
 import jinja2
 import requests
 
+from re import compile
+
 from le_utils.constants import content_kinds, file_formats, licenses
 from ricecooker.chefs import SushiChef
 from ricecooker.classes import nodes
@@ -26,7 +28,7 @@ from ricecooker.utils.caching import CacheForeverHeuristic, FileCache, CacheCont
 from ricecooker.utils.html import download_file
 from ricecooker.utils.zip import create_predictable_zip
 
-
+from pprint import pprint
 
 # ENGAGE NY settings
 ################################################################################
@@ -91,13 +93,42 @@ def make_fully_qualified_url(url):
 # CRAWLING
 ################################################################################
 
-# def download_unit   for ELA
+def download_module(): # for ELA
+    pass
 
-# def visit_grade
-# def visit_module
-# def visit_unit
-# def visit_lesson
+def visit_grades(grades):
+    for grade in grades:
+        visit_grade(grade)
 
+MODULE_URL_RE = compile(r'^/resource/(.)+-module-(\d)+$')
+def visit_grade(grade):
+    grade_page = get_parsed_html_from_url(grade['url'])
+    grade_curriculum_toc = grade_page.find('div', class_='nysed-book-outline curriculum-map')
+    for module_li in grade_curriculum_toc.find_all('li', class_='module'):
+        visit_module(grade, module_li)
+
+def visit_module(grade, module_li):
+    details_div  = module_li.find('div', class_='details')
+    details = details_div.find('a', attrs={'href': MODULE_URL_RE })
+    grade_module = {
+        'kind': 'EngageNYModule',
+        'title': get_text(details),
+        'url': make_fully_qualified_url(details['href']),
+        'topics': [],
+    }
+    for topic_li in module_li.find('div', class_='tree').find_all('li', class_='topic'):
+        visit_topic(grade_module['topics'], topic_li)
+    grade['modules'].append(grade_module)
+
+
+def visit_unit():
+    pass
+
+def visit_topic(topics, topic_li):
+    pass
+
+def visit_lesson():
+    pass
 
 def crawling_part(args, options):
     """
@@ -112,16 +143,31 @@ def crawling_part(args, options):
     )
 
     # DO ALL THE CRAWLING...    (see ressa chef for example)
-    #
-    #
-    #
-    #
-    #
+    doc = get_parsed_html_from_url(ENGAGENY_CC_START_URL)
+    dual_toc_div = doc.find('div', id='mini-panel-common_core_curriculum')
+    ELA_toc = dual_toc_div.find('div', class_='panel-col-first')
+    MATH_toc = dual_toc_div.find('div', class_='panel-col-last')
+    MATH_grades_lis = MATH_toc.find_all('li')
+    MATH_grades = []
 
-    json_file_name = os.path.join(TREES_DATA_DIR, CRAWLING_STAGE_OUTPUT)
-    with open(json_file_name, 'w') as json_file:
-        json.dump(web_resource_tree, json_file, indent=2)
-        LOGGER.info('Crawling results stored in ' + json_file_name)
+    for grade_li in MATH_grades_lis:
+        grade_path = grade_li.find('a')['href']
+        grade_url = make_fully_qualified_url(grade_path)
+        MATH_grades.append({
+            'kind': 'EngageNYGrade',
+            'url': grade_url,
+            'title': get_text(grade_li),
+            'modules': []
+        })
+
+    visit_grades(MATH_grades)
+
+    # json_file_name = os.path.join(TREES_DATA_DIR, CRAWLING_STAGE_OUTPUT)
+    # with open(json_file_name, 'w') as json_file:
+    #     json.dump(web_resource_tree, json_file, indent=2)
+    #     LOGGER.info('Crawling results stored in ' + json_file_name)
+
+    return MATH_grades
 
 
 
@@ -413,6 +459,3 @@ class EngageNYChef(SushiChef):
 if __name__ == '__main__':
     chef = EngageNYChef()
     chef.main()
-
-
-
