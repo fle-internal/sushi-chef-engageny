@@ -28,7 +28,6 @@ from ricecooker.utils.caching import CacheForeverHeuristic, FileCache, CacheCont
 from ricecooker.utils.html import download_file
 from ricecooker.utils.zip import create_predictable_zip
 
-from pprint import pprint
 
 # ENGAGE NY settings
 ################################################################################
@@ -124,11 +123,30 @@ def visit_module(grade, module_li):
 def visit_unit():
     pass
 
+TOPIC_URL_RE = compile(r'^(.)+-topic(.)*')
 def visit_topic(topics, topic_li):
-    pass
+    details_div = topic_li.find('div', class_='details')
+    details = details_div.find('a', attrs={'href': TOPIC_URL_RE })
+    topic = {
+        'kind': 'EngageNYTopic',
+        'title': get_text(details),
+        'url': make_fully_qualified_url(details['href']),
+        'lessons': [],
+    }
+    for lesson_li in topic_li.find('div', class_='tree').find_all('li', class_='lesson'):
+        visit_lesson(topic, lesson_li)
+    topics.append(topic)
 
-def visit_lesson():
-    pass
+LESSON_URL_RE = compile(r'^(.)+-lesson(.)*')
+def visit_lesson(topic, lesson_li):
+    details_div = lesson_li.find('div', class_='details')
+    details = details_div.find('a', attrs={ 'href': LESSON_URL_RE })
+    lesson = {
+        'kind': 'EngageNYLesson',
+        'title': get_text(details),
+        'url': make_fully_qualified_url(details['href'])
+    }
+    topic['lessons'].append(lesson)
 
 def crawling_part(args, options):
     """
