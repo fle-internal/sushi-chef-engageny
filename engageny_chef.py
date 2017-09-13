@@ -200,30 +200,58 @@ def crawling_part():
 # def download_ela_unit
 # def download_ela_lesson
 
-def download_math_grades(tree, grades):
+def download_math_grades(channel_tree, grades):
     for grade in grades:
-        download_math_grade(tree, grade)
+        download_math_grade(channel_tree, grade)
 
-def get_grade_description(grade_page):
-    return get_text(grade_page.find('div', 'content-body'))
+def get_description(markup_node):
+    return get_text(markup_node.find('div', 'content-body'))
 
-def download_math_grade(tree, grade):
+def download_math_grade(channel_tree, grade):
     url = grade['url']
     grade_page = get_parsed_html_from_url(url)
-    topic = dict(
+    topic_node = dict(
         kind='TopicNode',
         source_id=url,
         title=grade['title'],
-        author='',
-        description=get_grade_description(grade_page),
-        thumbnail='',
+        description=get_description(grade_page),
+        children=[],
     )
-    tree['children'].append(topic)
+    for mod in grade['modules']:
+        download_math_module(topic_node, mod)
+    channel_tree['children'].append(topic_node)
 
-def download_math_module():
-    pass
+def get_thumbnail_url(module_page):
+    return module_page.find('meta', property='og:image')['content']
 
-def download_math_topic():
+def download_math_module(topic_node, mod):
+    url = mod['url']
+    module_page = get_parsed_html_from_url(url)
+    description = get_description(module_page)
+
+    overview_node = dict(
+        kind='DocumentNode',
+        source_id=url,
+        author='ENGAGE NY',
+        description=get_description(module_page),
+        thumbnail=get_thumbnail_url(module_page),
+    )
+
+    assessment_node = dict(
+        kind='DocumentNode',
+    )
+    module_node = dict(
+        kind='TopicNode',
+        source_id=url,
+        title=mod['title'],
+        description=description,
+        children=[overview_node, assessment_node],
+    )
+    for topic in mod['topics']:
+        download_math_topic(module_node, topic)
+    topic_node['children'].append(module_node)
+
+def download_math_topic(module_node, topic):
     pass
 
 def download_math_lesson(lesson_url):
@@ -276,14 +304,14 @@ def download_math_lesson(lesson_url):
 
 
 def build_scraping_json_tree(web_resource_tree):
-    ricecooker_tree = dict(
+    channel_tree = dict(
         kind='ChannelNode',
         title='NOT USED ' +  web_resource_tree['title'],
         language=web_resource_tree['language'],
         children=[],
     )
-    download_math_grades(ricecooker_tree, web_resource_tree['children']['math']['grades'])
-    return ricecooker_tree
+    download_math_grades(channel_tree, web_resource_tree['children']['math']['grades'])
+    return channel_tree
 
 def scraping_part():
     """
