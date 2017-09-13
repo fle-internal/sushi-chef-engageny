@@ -85,10 +85,6 @@ def make_fully_qualified_url(url):
         return "https://www.engageny.org" + url
     return url
 
-
-
-
-
 # CRAWLING
 ################################################################################
 
@@ -169,7 +165,7 @@ def visit_lesson(topic, lesson_li):
     }
     topic['lessons'].append(lesson)
 
-def crawling_part(args, options):
+def crawling_part():
     """
     Visit all the urls on engageny.org/resource/ and engageny.org/content, and extract content structure.
     """
@@ -204,11 +200,25 @@ def crawling_part(args, options):
 # def download_ela_unit
 # def download_ela_lesson
 
-def dowload_math_grades():
-    pass
+def download_math_grades(tree, grades):
+    for grade in grades:
+        download_math_grade(tree, grade)
 
-def download_math_grade():
-    pass
+def get_grade_description(grade_page):
+    return get_text(grade_page.find('div', 'content-body'))
+
+def download_math_grade(tree, grade):
+    url = grade['url']
+    grade_page = get_parsed_html_from_url(url)
+    topic = dict(
+        kind='TopicNode',
+        source_id=url,
+        title=grade['title'],
+        author='',
+        description=get_grade_description(grade_page),
+        thumbnail='',
+    )
+    tree['children'].append(topic)
 
 def download_math_module():
     pass
@@ -265,18 +275,17 @@ def download_math_lesson(lesson_url):
 
 
 
-def build_scraping_json_tree(webresource_tree):
+def build_scraping_json_tree(web_resource_tree):
     ricecooker_tree = dict(
         kind='ChannelNode',
         title='NOT USED ' +  web_resource_tree['title'],
         language=web_resource_tree['language'],
         children=[],
     )
-    
-
+    download_math_grades(ricecooker_tree, web_resource_tree['children']['math']['grades'])
     return ricecooker_tree
 
-def scraping_part(args, options):
+def scraping_part():
     """
     Download all categories, subpages, modules, and resources from engageny.
     """
@@ -300,6 +309,8 @@ def scraping_part(args, options):
     with open(json_file_name, 'w') as json_file:
         json.dump(ricecooker_json_tree, json_file, indent=2)
         LOGGER.info('Scraping result stored in ' + json_file_name)
+
+    return ricecooker_json_tree
 
 
 # CONSTRUCT CHANNEL FROM RICECOOKER JSON TREE
@@ -410,7 +421,7 @@ class EngageNYChef(SushiChef):
         PART 1: CRAWLING
         Builds the json web resource tree --- the recipe of what is to be downloaded.
         """
-        crawling_part(args, options)
+        crawling_part()
 
 
     def scrape(self, args, options):
@@ -418,7 +429,7 @@ class EngageNYChef(SushiChef):
         PART 2: SCRAPING
         Builds the ricecooker_json_tree needed to create the ricecooker tree for the channel
         """
-        scraping_part(args, options)
+        scraping_part()
 
 
     def pre_run(self, args, options):
