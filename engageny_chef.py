@@ -95,9 +95,30 @@ def make_fully_qualified_url(url):
 def download_module(): # for ELA
     pass
 
-def visit_grades(grades):
-    for grade in grades:
+CONTENT_OR_RESOURCE_URL_RE = compile(r'/(content|resource)/*')
+def crawl(root_url):
+    doc = get_parsed_html_from_url(root_url)
+    dual_toc_div = doc.find('div', id='mini-panel-common_core_curriculum')
+    ela_toc = dual_toc_div.find('div', class_='panel-col-first')
+    math_toc = dual_toc_div.find('div', class_='panel-col-last')
+    return visit_grades(ela_toc, math_toc)
+
+def visit_grades(ela_toc, math_toc):
+    ela_grades = []
+    math_grades = []
+    for grade_a in math_toc.find_all('a', attrs={'href': CONTENT_OR_RESOURCE_URL_RE }):
+        grade_path = grade_a['href']
+        grade_url = make_fully_qualified_url(grade_path)
+        math_grades.append({
+            'kind': 'EngageNYGrade',
+            'url': grade_url,
+            'title': get_text(grade_a),
+            'modules': []
+        })
+    for grade in math_grades:
         visit_grade(grade)
+
+    return (ela_grades, math_grades)
 
 MODULE_URL_RE = compile(r'^/resource/(.)+-module-(\d)+$')
 def visit_grade(grade):
@@ -152,43 +173,20 @@ def crawling_part(args, options):
     """
     Visit all the urls on engageny.org/resource/ and engageny.org/content, and extract content structure.
     """
-    # crawl website to build web_resource_tree =
+    # crawl website to build web_resource_tree
+    ela_hierarchy, math_hierarchy = crawl(ENGAGENY_CC_START_URL)
     web_resource_tree = dict(
         kind="EngageNYWebResourceTree",
         title="Engage NY Web Resource Tree (ELS and CCSSM)",
         language='en',
+        children = math_hierarchy
     )
-
-    doc = get_parsed_html_from_url(ENGAGENY_CC_START_URL)
-    dual_toc_div = doc.find('div', id='mini-panel-common_core_curriculum')
-    ELA_toc = dual_toc_div.find('div', class_='panel-col-first')
-    MATH_toc = dual_toc_div.find('div', class_='panel-col-last')
-    MATH_grades_lis = MATH_toc.find_all('li')
-    MATH_grades = []
-
-    for grade_li in MATH_grades_lis:
-        grade_path = grade_li.find('a')['href']
-        grade_url = make_fully_qualified_url(grade_path)
-        MATH_grades.append({
-            'kind': 'EngageNYGrade',
-            'url': grade_url,
-            'title': get_text(grade_li),
-            'modules': []
-        })
-
-    visit_grades(MATH_grades)
-    web_resource_tree['children'] = MATH_grades
-
     json_file_name = os.path.join(TREES_DATA_DIR, CRAWLING_STAGE_OUTPUT)
     with open(json_file_name, 'w') as json_file:
         json.dump(web_resource_tree, json_file, indent=2)
         LOGGER.info('Crawling results stored in ' + json_file_name)
 
-    return MATH_grades
-
-
-
-
+    return math_hierarchy
 
 
 # SCRAPING
