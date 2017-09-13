@@ -224,6 +224,11 @@ def download_math_grade(channel_tree, grade):
 def get_thumbnail_url(module_page):
     return module_page.find('meta', property='og:image')['content']
 
+END_OF_MODULE_ASSESSMENT_RE = compile(r'(.)+-as{1,2}es{1,2}ments{0,1}.(zip|pdf)(.)*')
+
+def get_end_of_module_assessment_url(page):
+    return page.find('a', attrs={ 'href': END_OF_MODULE_ASSESSMENT_RE })
+
 def download_math_module(topic_node, mod):
     url = mod['url']
     module_page = get_parsed_html_from_url(url)
@@ -236,9 +241,14 @@ def download_math_module(topic_node, mod):
         description=get_description(module_page),
         thumbnail=get_thumbnail_url(module_page),
     )
-
+    end_of_module_assessment_anchor = get_end_of_module_assessment_url(module_page)
+    if end_of_module_assessment_anchor is None:
+        print(url)
     assessment_node = dict(
         kind='DocumentNode',
+        source_id=make_fully_qualified_url(end_of_module_assessment_anchor['href']),
+        author='ENGAGE NY',
+        description=end_of_module_assessment_anchor['title'],
     )
     module_node = dict(
         kind='TopicNode',
