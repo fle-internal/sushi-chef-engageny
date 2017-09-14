@@ -225,32 +225,49 @@ def get_thumbnail_url(module_page):
     return module_page.find('meta', property='og:image')['content']
 
 END_OF_MODULE_ASSESSMENT_RE = compile(r'(.)+-as{1,2}es{1,2}ments{0,1}.(zip|pdf)(.)*')
-
 def get_end_of_module_assessment_url(page):
     return page.find('a', attrs={ 'href': END_OF_MODULE_ASSESSMENT_RE })
+
+MODULE_OVERVIEW_DOCUMENT_RE = compile(r'^/file/(.)+-module-overview.pdf(.)*$')
+def get_module_overview_document(page):
+    return page.find('a', attrs={'href':  MODULE_OVERVIEW_DOCUMENT_RE })
 
 def download_math_module(topic_node, mod):
     url = mod['url']
     module_page = get_parsed_html_from_url(url)
     description = get_description(module_page)
-
+    module_overview_document_anchor = get_module_overview_document(module_page)
+    if module_overview_document_anchor is None:
+        print(url)
     overview_node = dict(
         kind='DocumentNode',
         source_id=url,
         title=mod['title'],
-        author='ENGAGE NY',
         description=get_description(module_page),
         thumbnail=get_thumbnail_url(module_page),
+        files=[
+            dict(
+                file_type='DocumentFile',
+                path=make_fully_qualified_url(module_overview_document_anchor['href']),
+            ),
+        ] if module_overview_document_anchor is not None else []
     )
     end_of_module_assessment_anchor = get_end_of_module_assessment_url(module_page)
     if end_of_module_assessment_anchor is None:
         print(url)
+    else:
+        assessment_document_url = make_fully_qualified_url(end_of_module_assessment_anchor['href']) if end_of_module_assessment_anchor is not None else None
     assessment_node = dict(
         kind='DocumentNode',
-        source_id=make_fully_qualified_url(end_of_module_assessment_anchor['href']),
-        author='ENGAGE NY',
+        source_id=assessment_document_url,
         title=get_text(end_of_module_assessment_anchor),
         description=end_of_module_assessment_anchor['title'],
+        files=[
+            dict(
+                file_type='DocumentFile',
+                path=assessment_document_url,
+            )
+        ] if end_of_module_assessment_anchor is not None else []
     )
     module_node = dict(
         kind='TopicNode',
@@ -396,6 +413,7 @@ def build_tree(parent_node, sourcetree):
 
         elif kind == 'DocumentNode':
             child_node = nodes.DocumentNode(
+
                 source_id=source_node["source_id"],
                 title=source_node["title"],
                 license=ENGAGENY_LICENSE,
