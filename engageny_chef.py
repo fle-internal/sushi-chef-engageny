@@ -237,6 +237,7 @@ def download_math_module(topic_node, mod):
     overview_node = dict(
         kind='DocumentNode',
         source_id=url,
+        title=mod['title'],
         author='ENGAGE NY',
         description=get_description(module_page),
         thumbnail=get_thumbnail_url(module_page),
@@ -248,6 +249,7 @@ def download_math_module(topic_node, mod):
         kind='DocumentNode',
         source_id=make_fully_qualified_url(end_of_module_assessment_anchor['href']),
         author='ENGAGE NY',
+        title=get_text(end_of_module_assessment_anchor),
         description=end_of_module_assessment_anchor['title'],
     )
     module_node = dict(
