@@ -228,7 +228,7 @@ END_OF_MODULE_ASSESSMENT_RE = compile(r'^(?P<segmentsonly>(.)+-as{1,2}es{1,2}men
 def get_end_of_module_assessment_url(page):
     return page.find('a', attrs={ 'href': END_OF_MODULE_ASSESSMENT_RE })
 
-MODULE_OVERVIEW_DOCUMENT_RE = compile(r'^(?P<segmentsonly>/file/(.)+-module-overview.pdf)(.)*$')
+MODULE_OVERVIEW_DOCUMENT_RE = compile(r'^(?P<segmentsonly>/file/(.)+-overview(.)*.(pdf|zip))(.)*$')
 def get_module_overview_document(page):
     return page.find('a', attrs={'href':  MODULE_OVERVIEW_DOCUMENT_RE })
 
@@ -240,7 +240,8 @@ def download_math_module(topic_node, mod):
 
     if module_overview_document_anchor is None:
         # TODO: Download the bundle, store on local disk, and set the file's `path` to the proper on disk location
-        print(url)
+        print("didn't find module overview pdf or bundle zip: ", url)
+
     overview_node = dict(
         kind='DocumentNode',
         source_id=url,
