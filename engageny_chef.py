@@ -72,7 +72,7 @@ get_text = lambda x: "" if x is None else x.get_text().replace('\r', '').replace
 def get_parsed_html_from_url(url, *args, **kwargs):
     response = sess.get(url, *args, **kwargs)
     if response.status_code != 200:
-        LOGGER.error("NOT FOUND:", url)
+        LOGGER.error("STATUS: {}, URL: {}", response.status_code, url)
     elif not response.from_cache:
         LOGGER.debug("NOT CACHED:", url)
     return BeautifulSoup(response.content, "html.parser")
@@ -222,8 +222,9 @@ def download_math_grade(channel_tree, grade):
         download_math_module(topic_node, mod)
     channel_tree['children'].append(topic_node)
 
-def get_thumbnail_url(module_page):
-    return module_page.find('meta', property='og:image')['content']
+def get_thumbnail_url(page):
+    thumbnail_url = page.find('meta', property='og:image')['content']
+    return None if PurePosixPath(thumbnail_url).suffix == '.gif' else thumbnail_url
 
 END_OF_MODULE_ASSESSMENT_RE = compile(r'^(?P<segmentsonly>(.)+-as{1,2}es{1,2}ments{0,1}.(zip|pdf))(.)*')
 def get_end_of_module_assessment_url(page):
@@ -248,7 +249,7 @@ def download_math_module(topic_node, mod):
             source_id=url,
             title=mod['title'] + " Overview",
             description=get_description(module_page),
-            thumbnail=None if PurePosixPath(thumbnail_url).suffix == '.gif' else thumbnail_url,
+            thumbnail=thumbnail_url,
             files=[
                 dict(
                     file_type='DocumentFile',
@@ -290,32 +291,70 @@ def download_math_module(topic_node, mod):
         description=description,
         children=initial_children,
     )
-    for topic in mod['topics']:
-        download_math_topic(module_node, topic)
+    download_math_topics(module_node, mod['topics'])
     topic_node['children'].append(module_node)
 
+def download_math_topics(module_node, topics):
+    for topic in topics:
+        download_math_topic(module_node, topic)
+
 def download_math_topic(module_node, topic):
-    pass
+    initial_children = []
+    url = topic['url']
+    topic_page = get_parsed_html_from_url(url)
+    description =get_description(topic_page)
 
-def download_math_lesson(lesson_url):
-    doc = get_parsed_html_from_url(lesson_url)
-    #
-    title_h2 = doc.find('div', class_='pane-title').find('h2')
-    title = get_text(title_h2)
-    #
-    content_div = doc.find('div', class_="pane-content")
-    description = get_text(content_div)
+    topic_overview_anchor = get_module_overview_document(topic_page)
+    if topic_overview_anchor is not None:
+        overview_document_file = MODULE_OVERVIEW_DOCUMENT_RE.match(topic_overview_anchor['href']).group('segmentsonly')
+        overview_node = dict(
+            kind='DocumentNode',
+            source_id='',
+            title=topic['title'] + ' Overview',
+            description='description',
+            thumbnail=get_thumbnail_url(topic_page),
+            files=[
+                dict(
+                    file_type='DocumentFile',
+                    path=make_fully_qualified_url(overview_document_file)
+                )
+            ]
+        )
+        initial_children.append(overview_node)
 
+    download_math_lessons(initial_children, topic['lessons'])
+
+    topic_node = dict(
+        kind='TopicNode',
+        source_id=url,
+        title=topic['title'],
+        description=description,
+        children=initial_children
+    )
+    module_node['children'].append(topic_node)
+
+def download_math_lessons(parent, lessons):
+    for lesson in lessons:
+        download_math_lesson(parent, lesson)
+
+def download_math_lesson(parent, lesson):
+    lesson_url = lesson['url']
+    lesson_page = get_parsed_html_from_url(lesson_url)
+    title = lesson['title']
+    description = get_description(lesson_page)
     lesson_data = dict(
         kind='TopicNode',
-        source_id=lesson_url, # TODO: extract only /path
+        source_id=lesson_url,
         title=title,
         description=description,
         language='en',
         children=[],
     )
+    resources_pane = lesson_page.find('div', class_='pane-downloadable-resources')
 
-    resources_pane = doc.find('div', class_='pane-downloadable-resources')
+    if resources_pane is None:
+        return
+
     resources_table = resources_pane.find('table')
     resources_rows = resources_table.find_all('tr')
 
@@ -342,9 +381,7 @@ def download_math_lesson(lesson_url):
             )
             lesson_data['children'].append(document_node)
 
-    return lesson_data
-
-
+    parent.append(lesson_data)
 
 def build_scraping_json_tree(web_resource_tree):
     channel_tree = dict(
