@@ -28,6 +28,7 @@ from ricecooker.utils.caching import CacheForeverHeuristic, FileCache, CacheCont
 from ricecooker.utils.html import download_file
 from ricecooker.utils.zip import create_predictable_zip
 
+from pathlib import PurePosixPath
 
 # ENGAGE NY settings
 ################################################################################
@@ -237,47 +238,57 @@ def download_math_module(topic_node, mod):
     module_page = get_parsed_html_from_url(url)
     description = get_description(module_page)
     module_overview_document_anchor = get_module_overview_document(module_page)
+    initial_children = []
 
-    if module_overview_document_anchor is None:
+    if module_overview_document_anchor is not None:
+        overview_document_file = MODULE_OVERVIEW_DOCUMENT_RE.match(module_overview_document_anchor['href']).group('segmentsonly')
+        thumbnail_url = get_thumbnail_url(module_page)
+        overview_node = dict(
+            kind='DocumentNode',
+            source_id=url,
+            title=mod['title'] + " Overview",
+            description=get_description(module_page),
+            thumbnail=None if PurePosixPath(thumbnail_url).suffix == '.gif' else thumbnail_url,
+            files=[
+                dict(
+                    file_type='DocumentFile',
+                    path=make_fully_qualified_url(overview_document_file),
+                ),
+            ]
+        )
+        if PurePosixPath(overview_document_file).suffix == ".pdf":
+            initial_children.append(overview_node)
+    else:
         # TODO: Download the bundle, store on local disk, and set the file's `path` to the proper on disk location
         print("didn't find module overview pdf or bundle zip: ", url)
 
-    overview_node = dict(
-        kind='DocumentNode',
-        source_id=url,
-        title=mod['title'],
-        description=get_description(module_page),
-        thumbnail=get_thumbnail_url(module_page),
-        files=[
-            dict(
-                file_type='DocumentFile',
-                path=make_fully_qualified_url(MODULE_OVERVIEW_DOCUMENT_RE.match(module_overview_document_anchor['href']).group('segmentsonly')),
-            ),
-        ] if module_overview_document_anchor is not None else []
-    )
     end_of_module_assessment_anchor = get_end_of_module_assessment_url(module_page)
-    if end_of_module_assessment_anchor is None:
-        print(url)
+    if end_of_module_assessment_anchor is not None:
+        module_assessment_file = END_OF_MODULE_ASSESSMENT_RE.match(end_of_module_assessment_anchor['href']).group('segmentsonly')
+        assessment_document_url = make_fully_qualified_url(module_assessment_file)
+        assessment_node = dict(
+            kind='DocumentNode',
+            source_id=assessment_document_url,
+            title=get_text(end_of_module_assessment_anchor),
+            description=end_of_module_assessment_anchor['title'],
+            files=[
+                dict(
+                    file_type='DocumentFile',
+                    path=assessment_document_url,
+                )
+            ]
+        )
+        if PurePosixPath(module_assessment_file).suffix == ".pdf":
+            initial_children.append(assessment_node)
     else:
-        assessment_document_url = make_fully_qualified_url(END_OF_MODULE_ASSESSMENT_RE.match(end_of_module_assessment_anchor['href']).group('segmentsonly')) if end_of_module_assessment_anchor is not None else None
-    assessment_node = dict(
-        kind='DocumentNode',
-        source_id=assessment_document_url,
-        title=get_text(end_of_module_assessment_anchor),
-        description=end_of_module_assessment_anchor['title'],
-        files=[
-            dict(
-                file_type='DocumentFile',
-                path=assessment_document_url,
-            )
-        ] if end_of_module_assessment_anchor is not None else []
-    )
+        print("didn't find end of module assessment doc: ", url)
+
     module_node = dict(
         kind='TopicNode',
         source_id=url,
         title=mod['title'],
         description=description,
-        children=[overview_node, assessment_node],
+        children=initial_children,
     )
     for topic in mod['topics']:
         download_math_topic(module_node, topic)
