@@ -14,6 +14,8 @@ import jinja2
 import requests
 
 from re import compile
+import zipfile
+import io
 
 from le_utils.constants import content_kinds, file_formats, licenses
 from ricecooker.chefs import SushiChef
@@ -51,6 +53,7 @@ sess.mount('https://www.engageny.org', forever_adapter)
 ################################################################################
 DATA_DIR = 'chefdata'
 TREES_DATA_DIR = os.path.join(DATA_DIR, 'trees')
+PDFS_DATA_DIR = os.path.join(DATA_DIR, 'pdfs')
 CRAWLING_STAGE_OUTPUT = 'web_resource_tree.json'
 SCRAPING_STAGE_OUTPUT = 'ricecooker_json_tree.json'
 
@@ -69,6 +72,9 @@ LOGGER.setLevel(logging.DEBUG)
 ################################################################################
 get_text = lambda x: "" if x is None else x.get_text().replace('\r', '').replace('\n', ' ').strip()
 
+def get_suffix(path):
+    return PurePosixPath(path).suffix
+
 def get_parsed_html_from_url(url, *args, **kwargs):
     response = sess.get(url, *args, **kwargs)
     if response.status_code != 200:
@@ -77,6 +83,29 @@ def get_parsed_html_from_url(url, *args, **kwargs):
         LOGGER.debug("NOT CACHED:", url)
     return BeautifulSoup(response.content, "html.parser")
 
+def download_zip_file(url):
+    if not url:
+        return (False, None)
+
+    if get_suffix(url) != '.zip':
+        return (False, None)
+
+    response = sess.get(url)
+    if response.status_code != 200:
+        LOGGER.error("STATUS: {}, URL: {}", response.status_code, url)
+        return (False, None)
+    elif not response.from_cache:
+        LOGGER.debug("NOT CACHED:", url)
+
+    archive = zipfile.ZipFile(io.BytesIO(response.content))
+    archive_members = list(filter(lambda f: f.filename.endswith('.pdf'), archive.infolist()))
+    archive_member_names = [None] * len(archive_members)
+    for i, pdf in enumerate(archive_members):
+        path = os.path.join(PDFS_DATA_DIR, pdf.filename)
+        archive_member_names[i] = path
+        if not os.path.exists(path):
+            archive.extract(pdf, PDFS_DATA_DIR)
+    return (True, archive_member_names)
 
 def make_fully_qualified_url(url):
     if url.startswith("//"):
@@ -196,6 +225,7 @@ def crawling_part():
 # SCRAPING
 ################################################################################
 
+# def download_ela_grades
 # def download_ela_grade
 # def download_ela_module
 # def download_ela_unit
@@ -224,11 +254,11 @@ def download_math_grade(channel_tree, grade):
 
 def get_thumbnail_url(page):
     thumbnail_url = page.find('meta', property='og:image')['content']
-    return None if PurePosixPath(thumbnail_url).suffix == '.gif' else thumbnail_url
+    return None if get_suffix(thumbnail_url) == '.gif' else thumbnail_url
 
-END_OF_MODULE_ASSESSMENT_RE = compile(r'^(?P<segmentsonly>(.)+-as{1,2}es{1,2}ments{0,1}.(zip|pdf))(.)*')
-def get_end_of_module_assessment_url(page):
-    return page.find('a', attrs={ 'href': END_OF_MODULE_ASSESSMENT_RE })
+MODULE_ASSESSMENTS_RE = compile(r'^(?P<segmentsonly>(.)+-as{1,2}es{1,2}ments{0,1}.(zip|pdf))(.)*')
+def get_module_assessments(page):
+    return page.find_all('a', attrs={ 'href': MODULE_ASSESSMENTS_RE })
 
 MODULE_OVERVIEW_DOCUMENT_RE = compile(r'^(?P<segmentsonly>/file/(.)+-overview(.)*.(pdf|zip))(.)*$')
 def get_module_overview_document(page):
@@ -240,9 +270,13 @@ def download_math_module(topic_node, mod):
     description = get_description(module_page)
     module_overview_document_anchor = get_module_overview_document(module_page)
     initial_children = []
+    module_overview_full_path = ''
+    fetch_overview_bundle = False
+    fetch_assessment_bundle = False
 
     if module_overview_document_anchor is not None:
-        overview_document_file = MODULE_OVERVIEW_DOCUMENT_RE.match(module_overview_document_anchor['href']).group('segmentsonly')
+        module_overview_file = MODULE_OVERVIEW_DOCUMENT_RE.match(module_overview_document_anchor['href']).group('segmentsonly')
+        module_overview_full_path = make_fully_qualified_url(module_overview_file)
         thumbnail_url = get_thumbnail_url(module_page)
         overview_node = dict(
             kind='DocumentNode',
@@ -253,36 +287,63 @@ def download_math_module(topic_node, mod):
             files=[
                 dict(
                     file_type='DocumentFile',
-                    path=make_fully_qualified_url(overview_document_file),
+                    path=module_overview_full_path
                 ),
             ]
         )
-        if PurePosixPath(overview_document_file).suffix == ".pdf":
+        if get_suffix(module_overview_file) == ".pdf":
             initial_children.append(overview_node)
+        else:
+            fetch_overview_bundle = True
     else:
-        # TODO: Download the bundle, store on local disk, and set the file's `path` to the proper on disk location
-        print("didn't find module overview pdf or bundle zip: ", url)
+        print("didn't find a math module overview match")
 
-    end_of_module_assessment_anchor = get_end_of_module_assessment_url(module_page)
-    if end_of_module_assessment_anchor is not None:
-        module_assessment_file = END_OF_MODULE_ASSESSMENT_RE.match(end_of_module_assessment_anchor['href']).group('segmentsonly')
-        assessment_document_url = make_fully_qualified_url(module_assessment_file)
-        assessment_node = dict(
-            kind='DocumentNode',
-            source_id=assessment_document_url,
-            title=get_text(end_of_module_assessment_anchor),
-            description=end_of_module_assessment_anchor['title'],
-            files=[
-                dict(
-                    file_type='DocumentFile',
-                    path=assessment_document_url,
-                )
-            ]
-        )
-        if PurePosixPath(module_assessment_file).suffix == ".pdf":
-            initial_children.append(assessment_node)
+    module_assessment_anchors = get_module_assessments(module_page)
+    if module_assessment_anchors:
+        for module_assessment_anchor in module_assessment_anchors:
+            module_assessment_file = MODULE_ASSESSMENTS_RE.match(module_assessment_anchor['href']).group('segmentsonly')
+            module_assessment_full_path = make_fully_qualified_url(module_assessment_file)
+            file_extension = get_suffix(module_assessment_file)
+            if file_extension == ".pdf":
+                assessment_node = dict(
+                    kind='DocumentNode',
+                    source_id=module_assessment_full_path,
+                    title=get_text(module_assessment_anchor),
+                    description=module_assessment_anchor['title'],
+                    files=[
+                        dict(
+                            file_type='DocumentFile',
+                            path=module_assessment_full_path
+                    )
+                ])
+                initial_children.append(assessment_node)
+            else:
+                fetch_assessment_bundle = True
     else:
-        print("didn't find end of module assessment doc: ", url)
+        print("didn't find a math module assessment(s) match")
+
+    if fetch_assessment_bundle:
+        print('will fetch assessment bundle:', module_assessment_full_path)
+        success, files = download_zip_file(module_assessment_full_path)
+        if success and files:
+            files.reverse()
+            for i, file in enumerate(files):
+                if fetch_overview_bundle and get_suffix(module_overview_full_path) == '.pdf' and file.endswith('overview.pdf'):
+                    continue
+                initial_children.append(dict(
+                    kind='DocumentNode',
+                    source_id=file,
+                    title=str(i) + ': pdf from bundle', # TODO(cesarn): Build a nice name
+                    description='TODO Description',
+                    files=[
+                        dict(
+                            file_type='DocumentFile',
+                            path=file
+                        )
+                    ]
+                ))
+        else:
+            print(success, 'download zip file for', module_assessment_full_path)
 
     module_node = dict(
         kind='TopicNode',
@@ -391,6 +452,7 @@ def build_scraping_json_tree(web_resource_tree):
         children=[],
     )
     download_math_grades(channel_tree, web_resource_tree['children']['math']['grades'])
+    # TODO(cesarn): download_ela_grades(channel_tree, web_resource_tree['children']['ela']['grades'])
     return channel_tree
 
 def scraping_part():
@@ -404,11 +466,6 @@ def scraping_part():
 
     # Build a Ricecooker tree from scraping process
     ricecooker_json_tree = build_scraping_json_tree(web_resource_tree)
-
-    # sample node (should be three folders deep... but for now putting in root)
-    # sample_lesson_url = 'https://www.engageny.org/resource/grade-6-mathematics-module-4-topic-f-lesson-18'
-    # lesson_node = download_math_lesson(sample_lesson_url)
-    # ricecooker_json_tree['children'].append(lesson_node)
 
     LOGGER.info('Finished building ricecooker_json_tree')
 
