@@ -75,6 +75,13 @@ get_text = lambda x: "" if x is None else x.get_text().replace('\r', '').replace
 def get_suffix(path):
     return PurePosixPath(path).suffix
 
+ITEM_FROM_BUNDLE_RE = re.compile(r'^.+/(?P<area>.+(-i+){0,1})-(?P<grade>.+)-(?P<module>.+)-(?P<assessment_cutoff>.+-){0,1}(?P<level>.+)-(?P<type>.+)\..+$')
+def get_item_from_bundle_title(path):
+    m = ITEM_FROM_BUNDLE_RE.match(path)
+    if m:
+        return ' '.join(filter(lambda x: x is not None, m.groups())).title()
+    raise Exception('Regex to match bundle item filename did not match')
+
 def get_parsed_html_from_url(url, *args, **kwargs):
     response = sess.get(url, *args, **kwargs)
     if response.status_code != 200:
@@ -330,11 +337,12 @@ def download_math_module(topic_node, mod):
             for i, file in enumerate(files):
                 if fetch_overview_bundle and get_suffix(module_overview_full_path) == '.pdf' and file.endswith('overview.pdf'):
                     continue
+                title = get_item_from_bundle_title(file)
                 initial_children.append(dict(
                     kind='DocumentNode',
                     source_id=file,
-                    title=str(i) + ': pdf from bundle', # TODO(cesarn): Build a nice name
-                    description='TODO Description',
+                    title=title,
+                    description=title,
                     files=[
                         dict(
                             file_type='DocumentFile',
