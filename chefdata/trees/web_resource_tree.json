@@ -13001,7 +13001,616 @@
       ]
     },
     "ela": {
-      "grades": []
+      "grades": [
+        {
+          "kind": "EngageNYGrade",
+          "url": "https://www.engageny.org/resource/prekindergarten-english-language-arts",
+          "title": "Prekindergarten English Language Arts",
+          "modules": [
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Listening and Learning Strand",
+              "url": "https://www.engageny.org/resource/prekindergarten-english-language-arts-listening-and-learning-strand",
+              "domains_or_units": []
+            }
+          ]
+        },
+        {
+          "kind": "EngageNYGrade",
+          "url": "https://www.engageny.org/resource/kindergarten-english-language-arts",
+          "title": "Kindergarten English Language Arts",
+          "modules": [
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Listening and Learning Strand",
+              "url": "https://www.engageny.org/resource/kindergarten-english-language-arts-listening-and-learning-strand",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Skills Strand",
+              "url": "https://www.engageny.org/resource/kindergarten-english-language-arts-skills-strand",
+              "domains_or_units": []
+            }
+          ]
+        },
+        {
+          "kind": "EngageNYGrade",
+          "url": "https://www.engageny.org/resource/grade-1-english-language-arts",
+          "title": "Grade 1 English Language Arts",
+          "modules": [
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Listening and Learning Strand",
+              "url": "https://www.engageny.org/resource/grade-1-english-language-arts-listening-and-learning-strand",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Skills Strand",
+              "url": "https://www.engageny.org/resource/grade-1-english-language-arts-skills-strand",
+              "domains_or_units": []
+            }
+          ]
+        },
+        {
+          "kind": "EngageNYGrade",
+          "url": "https://www.engageny.org/resource/grade-2-english-language-arts",
+          "title": "Grade 2 English Language Arts",
+          "modules": [
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Listening and Learning Strand",
+              "url": "https://www.engageny.org/resource/grade-2-english-language-arts-listening-and-learning-strand",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Skills Strand",
+              "url": "https://www.engageny.org/resource/grade-2-english-language-arts-skills-strand",
+              "domains_or_units": []
+            }
+          ]
+        },
+        {
+          "kind": "EngageNYGrade",
+          "url": "https://www.engageny.org/resource/grade-3-english-language-arts",
+          "title": "Grade 3 English Language Arts",
+          "modules": [
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 1",
+              "url": "https://www.engageny.org/resource/grade-3-ela-module-1",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 2A",
+              "url": "https://www.engageny.org/resource/grade-3-ela-module-2a",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 2B",
+              "url": "https://www.engageny.org/resource/grade-3-ela-module-2b",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 3A",
+              "url": "https://www.engageny.org/resource/grade-3-ela-module-3a",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 3B",
+              "url": "https://www.engageny.org/resource/grade-3-ela-module-3b",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 4",
+              "url": "https://www.engageny.org/resource/grade-3-ela-module-4",
+              "domains_or_units": []
+            }
+          ]
+        },
+        {
+          "kind": "EngageNYGrade",
+          "url": "https://www.engageny.org/resource/grade-4-english-language-arts",
+          "title": "Grade 4 English Language Arts",
+          "modules": [
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 1A",
+              "url": "https://www.engageny.org/resource/grade-4-ela-module-1a",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 1B",
+              "url": "https://www.engageny.org/resource/grade-4-ela-module-1b",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 2A",
+              "url": "https://www.engageny.org/resource/grade-4-ela-module-2a",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 2B",
+              "url": "https://www.engageny.org/resource/grade-4-ela-module-2b",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 3A",
+              "url": "https://www.engageny.org/resource/grade-4-ela-module-3a",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 3B",
+              "url": "https://www.engageny.org/resource/grade-4-ela-module-3b",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 4",
+              "url": "https://www.engageny.org/resource/grade-4-ela-module-4",
+              "domains_or_units": []
+            }
+          ]
+        },
+        {
+          "kind": "EngageNYGrade",
+          "url": "https://www.engageny.org/resource/grade-5-english-language-arts",
+          "title": "Grade 5 English Language Arts",
+          "modules": [
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 1",
+              "url": "https://www.engageny.org/resource/grade-5-ela-module-1",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 2A",
+              "url": "https://www.engageny.org/resource/grade-5-ela-module-2a",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 2B",
+              "url": "https://www.engageny.org/resource/grade-5-ela-module-2b",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 3A",
+              "url": "https://www.engageny.org/resource/grade-5-ela-module-3a",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 3B",
+              "url": "https://www.engageny.org/resource/grade-5-ela-module-3b",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 4",
+              "url": "https://www.engageny.org/resource/grade-5-ela-module-4",
+              "domains_or_units": []
+            }
+          ]
+        },
+        {
+          "kind": "EngageNYGrade",
+          "url": "https://www.engageny.org/resource/grade-6-english-language-arts",
+          "title": "Grade 6 English Language Arts",
+          "modules": [
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 1",
+              "url": "https://www.engageny.org/resource/grade-6-ela-module-1",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 2A",
+              "url": "https://www.engageny.org/resource/grade-6-ela-module-2a",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 2B",
+              "url": "https://www.engageny.org/resource/grade-6-ela-module-2b",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 3A",
+              "url": "https://www.engageny.org/resource/grade-6-ela-module-3a",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 3B",
+              "url": "https://www.engageny.org/resource/grade-6-ela-module-3b",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 4",
+              "url": "https://www.engageny.org/resource/grade-6-ela-module-4",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit I: Reading Closely for Textual Details: The Wolf You Feed Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grade-6-ela-reading-closely-textual-details-wolf-you-feed",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit II: Making Evidence-Based Claims Unit: Steve Jobs Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grade-6-ela-making-evidence-based-claims-unit-steve-jobs",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit III: Researching to Deepen Understanding Unit: Prehistoric Art Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grades-6-ela-researching-deepen-understanding-unit-prehistoric-art",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit IV: Building Evidence-Based Arguments Unit: Energy Crossroads  Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grades-6-ela-building-evidence-based-arguments-unit-energy-crossroads",
+              "domains_or_units": []
+            }
+          ]
+        },
+        {
+          "kind": "EngageNYGrade",
+          "url": "https://www.engageny.org/resource/grade-7-english-language-arts",
+          "title": "Grade 7 English Language Arts",
+          "modules": [
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 1",
+              "url": "https://www.engageny.org/resource/grade-7-ela-module-1",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 2A",
+              "url": "https://www.engageny.org/resource/grade-7-ela-module-2a",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 2B",
+              "url": "https://www.engageny.org/resource/grade-7-ela-module-2b",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 3",
+              "url": "https://www.engageny.org/resource/grade-7-ela-module-3",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 4A",
+              "url": "https://www.engageny.org/resource/grade-7-ela-module-4a",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 4B",
+              "url": "https://www.engageny.org/resource/grade-7-ela-module-4b",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit I: Reading Closely for Textual Details: At the Pole Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grade-7-ela-reading-closely-textual-details-pole",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit II: Making Evidence-Based Claims Unit: Cesar Chavez Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grade-7-ela-making-evidence-based-claims-unit-cesar-chavez",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit III: Researching to Deepen Understanding Unit: Water Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grades-7-ela-researching-deepen-understanding-unit-water",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit IV: Building Evidence-Based Arguments Unit: Doping Can Be that Last 2 Percent Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grades-7-ela-building-evidence-based-arguments-unit-doping-can-be-last-2-percent",
+              "domains_or_units": []
+            }
+          ]
+        },
+        {
+          "kind": "EngageNYGrade",
+          "url": "https://www.engageny.org/resource/grade-8-english-language-arts",
+          "title": "Grade 8 English Language Arts",
+          "modules": [
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 1",
+              "url": "https://www.engageny.org/resource/grade-8-ela-module-1",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 2A",
+              "url": "https://www.engageny.org/resource/grade-8-ela-module-2a",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 2B",
+              "url": "https://www.engageny.org/resource/grade-8-ela-module-2b",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 3A",
+              "url": "https://www.engageny.org/resource/grade-8-ela-module-3a",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 3B",
+              "url": "https://www.engageny.org/resource/grade-8-ela-module-3b",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 4",
+              "url": "https://www.engageny.org/resource/grade-8-ela-module-4",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit I: Reading Closely for Textual Details: We Had to Learn English  Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grade-8-ela-reading-closely-textual-details-we-had-learn-english",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit II: Making Evidence-Based Claims Unit: Truth, Chisholm, Williams Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grade-8-ela-making-evidence-based-claims-unit-truth-chisholm-williams",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit III: Researching to Deepen Understanding Unit: Human-Animal Interaction Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grades-8-ela-researching-deepen-understanding-unit-human-animal-interaction",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit IV: Building Evidence-Based Arguments Unit: E Pluribus Unum Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grades-8-ela-building-evidence-based-arguments-unit-e-pluribus-unum",
+              "domains_or_units": []
+            }
+          ]
+        },
+        {
+          "kind": "EngageNYGrade",
+          "url": "https://www.engageny.org/resource/grade-9-english-language-arts",
+          "title": "Grade 9 English Language Arts",
+          "modules": [
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 1",
+              "url": "https://www.engageny.org/resource/grade-9-ela-module-1",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 2",
+              "url": "https://www.engageny.org/resource/grade-9-ela-module-2",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 3",
+              "url": "https://www.engageny.org/resource/grade-9-ela-module-3",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 4",
+              "url": "https://www.engageny.org/resource/grade-9-ela-module-4",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit I: Reading Closely for Textual Details: Brain Gain Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grades-9-10-ela-reading-closely-textual-details-brain-gain",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit I: Reading Closely for Textual Details: Modern Battlefield Developing Core Proficiences Curriculum",
+              "url": "https://www.engageny.org/resource/unit-i-reading-closely-textual-details-modern-battlefield",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit II: Making Evidence-Based Claims Unit: Plato Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grade-9-ela-making-evidence-based-claims-unit-plato",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit II: Making Evidence-Based Claims Literary Technique Unit: Ernest Hemingway  Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grade-9-ela-making-evidence-based-claims-literary-technique-unit-ernest-hemingway",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit III: Researching to Deepen Understanding Unit: Music and Technology Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grades-9-10-ela-researching-deepen-understanding-unit-music-and-technology",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit IV: Building Evidence-Based Arguments Unit: Perspectives on Terrorism Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grades-9-ela-building-evidence-based-arguments-unit-perspectives-terrorism",
+              "domains_or_units": []
+            }
+          ]
+        },
+        {
+          "kind": "EngageNYGrade",
+          "url": "https://www.engageny.org/resource/grade-10-english-language-arts",
+          "title": "Grade 10 English Language Arts",
+          "modules": [
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 1",
+              "url": "https://www.engageny.org/resource/grade-10-ela-module-1",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 2",
+              "url": "https://www.engageny.org/resource/grade-10-ela-module-2",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 3",
+              "url": "https://www.engageny.org/resource/grade-10-ela-module-3",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 4",
+              "url": "https://www.engageny.org/resource/grade-10-ela-module-4",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit II: Making Evidence-Based Claims Unit: Martin Luther King, Barack Obama Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grade-10-ela-making-evidence-based-claims-unit-martin-luther-king-barack-obama",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit II: Making Evidence-Based Claims Literary Technique Unit: Emily Dickinson, Robert Frost  Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grade-10-ela-making-evidence-based-claims-literary-technique-unit-emily-dickinson-robert",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Unit IV: Building Evidence-Based Arguments Unit: Search Warrant Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grades-10-ela-building-evidence-based-arguments-unit-search-warrant",
+              "domains_or_units": []
+            }
+          ]
+        },
+        {
+          "kind": "EngageNYGrade",
+          "url": "https://www.engageny.org/resource/grade-11-english-language-arts",
+          "title": "Grade 11 English Language Arts",
+          "modules": [
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 1",
+              "url": "https://www.engageny.org/resource/grade-11-ela-module-1",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 2",
+              "url": "https://www.engageny.org/resource/grade-11-ela-module-2",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 3",
+              "url": "https://www.engageny.org/resource/grade-11-ela-module-3",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 4",
+              "url": "https://www.engageny.org/resource/grade-11-ela-module-4",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grade-11-ela-developing-core-proficiencies-curriculum",
+              "domains_or_units": []
+            }
+          ]
+        },
+        {
+          "kind": "EngageNYGrade",
+          "url": "https://www.engageny.org/resource/grade-12-english-language-arts",
+          "title": "Grade 12 English Language Arts",
+          "modules": [
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 1",
+              "url": "https://www.engageny.org/resource/grade-12-ela-module-1",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 2",
+              "url": "https://www.engageny.org/resource/grade-12-ela-module-2",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 3",
+              "url": "https://www.engageny.org/resource/grade-12-ela-module-3",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Module 4",
+              "url": "https://www.engageny.org/resource/grade-12-ela-module-4",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Extension Module",
+              "url": "https://www.engageny.org/resource/grade-12-ela-extension-module",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Literary Criticism Module",
+              "url": "https://www.engageny.org/resource/grade-12-ela-literary-criticism-module",
+              "domains_or_units": []
+            },
+            {
+              "kind": "EngageNYStrandOrModule",
+              "title": "Developing Core Proficiencies Curriculum",
+              "url": "https://www.engageny.org/resource/grade-12-ela-developing-core-proficiencies-curriculum",
+              "domains_or_units": []
+            }
+          ]
+        }
+      ]
     }
   }
 }

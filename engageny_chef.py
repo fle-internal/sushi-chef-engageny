@@ -136,22 +136,36 @@ def crawl(root_url):
     math_toc = dual_toc_div.find('div', class_='panel-col-last')
     return visit_grades(ela_toc, math_toc)
 
-def visit_grades(ela_toc, math_toc):
-    ela_grades = []
-    math_grades = []
-    for grade_a in math_toc.find_all('a', attrs={'href': CONTENT_OR_RESOURCE_URL_RE }):
-        grade_path = grade_a['href']
+def find_grades(toc):
+    grades = []
+    for grade in toc.find_all('a', attrs={'href': CONTENT_OR_RESOURCE_URL_RE }):
+        grade_path = grade['href']
         grade_url = make_fully_qualified_url(grade_path)
-        math_grades.append({
+        grades.append({
             'kind': 'EngageNYGrade',
             'url': grade_url,
-            'title': get_text(grade_a),
+            'title': get_text(grade),
             'modules': []
         })
+    return grades
+
+def visit_grades(ela_toc, math_toc):
+    ela_grades = find_grades(ela_toc)
+    math_grades = find_grades(math_toc)
+
+    for grade in ela_grades:
+        visit_ela_grade(grade)
     for grade in math_grades:
         visit_grade(grade)
 
     return (ela_grades, math_grades)
+
+STRAND_OR_MODULE_RE = compile('\w*\s*(strand|module)\s*\w*')
+def visit_ela_grade(grade):
+    grade_page = get_parsed_html_from_url(grade['url'])
+    grade_curriculum_toc = grade_page.find('div', class_='nysed-book-outline curriculum-map')
+    for strand_or_module_li in grade_curriculum_toc.find_all('li', attrs={'class': STRAND_OR_MODULE_RE}):
+        visit_strand_or_module(grade, strand_or_module_li)
 
 MODULE_URL_RE = compile(r'^/resource/(.)+-module-(\d)+$')
 def visit_grade(grade):
@@ -173,9 +187,18 @@ def visit_module(grade, module_li):
         visit_topic(grade_module['topics'], topic_li)
     grade['modules'].append(grade_module)
 
-
-def visit_unit():
-    pass
+def visit_strand_or_module(grade, strand_or_module_li):
+    details_div = strand_or_module_li.find('div', class_='details')
+    details = details_div.find('a',  attrs={'href': compile(r'^/resource')})
+    grade_strand_or_module = {
+        'kind': 'EngageNYStrandOrModule',
+        'title': get_text(details),
+        'url': make_fully_qualified_url(details['href']),
+        'domains_or_units': []
+    }
+    for domain_or_unit in strand_or_module_li.find('div', class_='tree').find_all('li', attrs={'href': compile(r'\w*\s*(domain|unit)\s*\w*')}):
+        visit_ela_domain_or_unit(grade_strand_or_module, domain_or_unit)
+    grade['modules'].append(grade_strand_or_module)
 
 TOPIC_URL_RE = compile(r'^(.)+-topic(.)*')
 def visit_topic(topics, topic_li):
@@ -191,6 +214,19 @@ def visit_topic(topics, topic_li):
         visit_lesson(topic, lesson_li)
     topics.append(topic)
 
+def visit_ela_domain_or_unit(grade_strand_or_module, domain_or_unit_li):
+    details_div = domain_or_unit_li.find('div', class_='details')
+    details = details_div.find('a', attrs={'href': compile(r'^/resource') })
+    domain_or_unit = {
+        'kind': 'EngageNYDomainOrUnit',
+        'title': get_text(details),
+        'url': make_fully_qualified_url(details['href']),
+        'lessons_or_documents': []
+    }
+    for lesson_or_document in domain_or_unit_li.find('div', class_='tree').find_all('li', attrs={'href': compile(r'^/resource') }):
+        visit_lesson_or_document(domain_or_unit, lesson_or_document)
+    grade_strand_or_module['domains_or_units'].append(domain_or_unit)
+
 LESSON_URL_RE = compile(r'^(.)+-lesson(.)*')
 def visit_lesson(topic, lesson_li):
     details_div = lesson_li.find('div', class_='details')
@@ -201,6 +237,16 @@ def visit_lesson(topic, lesson_li):
         'url': make_fully_qualified_url(details['href'])
     }
     topic['lessons'].append(lesson)
+
+def visit_lesson_or_unit(domain_or_unit, lesson_or_document_li):
+    details_div = lesson_or_document_li.find('div', class_='details')
+    details = details_div.find('a', attrs={'href': compile(r'^/resource')})
+    lesson_or_unit = {
+        'kind': 'EngageNYLessonOrUnit',
+        'title': get_text(details),
+        'url': make_fully_qualified_url(details['href'])
+    }
+    domain_or_unit['lessons_or_documents'].append(lesson_or_unit)
 
 def crawling_part():
     """
@@ -620,8 +666,8 @@ class EngageNYChef(SushiChef):
         """
         channel = ChannelNode(
             source_domain = 'engageny.org',
-            source_id = 'engagny-testing',    # TODO: remove -testing
-            title = 'Engage NY-testing',      # TODO: remove -testing
+            source_id = 'engagny',
+            title = 'Engage NY',
             thumbnail = './content/engageny_logo.png',
             description = 'EngageNY Common Core Curriculum Content... ELA and CCSSM combined',
             language = 'en'
