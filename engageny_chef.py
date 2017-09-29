@@ -136,7 +136,7 @@ def crawl(root_url):
     math_toc = dual_toc_div.find('div', class_='panel-col-last')
     return visit_grades(ela_toc, math_toc)
 
-def find_grades(toc):
+def find_grades(toc, children_label='modules'):
     grades = []
     for grade in toc.find_all('a', attrs={'href': CONTENT_OR_RESOURCE_URL_RE }):
         grade_path = grade['href']
@@ -145,12 +145,12 @@ def find_grades(toc):
             'kind': 'EngageNYGrade',
             'url': grade_url,
             'title': get_text(grade),
-            'modules': []
+            children_label: []
         })
     return grades
 
 def visit_grades(ela_toc, math_toc):
-    ela_grades = find_grades(ela_toc)
+    ela_grades = find_grades(ela_toc,  children_label='strands_or_modules')
     math_grades = find_grades(math_toc)
 
     for grade in ela_grades:
@@ -165,7 +165,7 @@ def visit_ela_grade(grade):
     grade_page = get_parsed_html_from_url(grade['url'])
     grade_curriculum_toc = grade_page.find('div', class_='nysed-book-outline curriculum-map')
     for strand_or_module_li in grade_curriculum_toc.find_all('li', attrs={'class': STRAND_OR_MODULE_RE}):
-        visit_strand_or_module(grade, strand_or_module_li)
+        visit_ela_strand_or_module(grade, strand_or_module_li)
 
 MODULE_URL_RE = compile(r'^/resource/(.)+-module-(\d)+$')
 def visit_grade(grade):
@@ -187,7 +187,7 @@ def visit_module(grade, module_li):
         visit_topic(grade_module['topics'], topic_li)
     grade['modules'].append(grade_module)
 
-def visit_strand_or_module(grade, strand_or_module_li):
+def visit_ela_strand_or_module(grade, strand_or_module_li):
     details_div = strand_or_module_li.find('div', class_='details')
     details = details_div.find('a',  attrs={'href': compile(r'^/resource')})
     grade_strand_or_module = {
@@ -196,9 +196,9 @@ def visit_strand_or_module(grade, strand_or_module_li):
         'url': make_fully_qualified_url(details['href']),
         'domains_or_units': []
     }
-    for domain_or_unit in strand_or_module_li.find('div', class_='tree').find_all('li', attrs={'href': compile(r'\w*\s*(domain|unit)\s*\w*')}):
+    for domain_or_unit in strand_or_module_li.find('div', class_='tree').find_all('li', attrs={'class': compile(r'\w*\s*(domain|unit)\s*\w*')}):
         visit_ela_domain_or_unit(grade_strand_or_module, domain_or_unit)
-    grade['modules'].append(grade_strand_or_module)
+    grade['strands_or_modules'].append(grade_strand_or_module)
 
 TOPIC_URL_RE = compile(r'^(.)+-topic(.)*')
 def visit_topic(topics, topic_li):
@@ -223,8 +223,8 @@ def visit_ela_domain_or_unit(grade_strand_or_module, domain_or_unit_li):
         'url': make_fully_qualified_url(details['href']),
         'lessons_or_documents': []
     }
-    for lesson_or_document in domain_or_unit_li.find('div', class_='tree').find_all('li', attrs={'href': compile(r'^/resource') }):
-        visit_lesson_or_document(domain_or_unit, lesson_or_document)
+    for lesson_or_document in domain_or_unit_li.find('div', class_='tree').find_all('li', attrs={'class': compile(r'\w*\s*(document|lesson)\w*\s*') }):
+        visit_ela_lesson_or_document(domain_or_unit, lesson_or_document)
     grade_strand_or_module['domains_or_units'].append(domain_or_unit)
 
 LESSON_URL_RE = compile(r'^(.)+-lesson(.)*')
@@ -238,15 +238,15 @@ def visit_lesson(topic, lesson_li):
     }
     topic['lessons'].append(lesson)
 
-def visit_lesson_or_unit(domain_or_unit, lesson_or_document_li):
+def visit_ela_lesson_or_document(domain_or_unit, lesson_or_document_li):
     details_div = lesson_or_document_li.find('div', class_='details')
     details = details_div.find('a', attrs={'href': compile(r'^/resource')})
-    lesson_or_unit = {
-        'kind': 'EngageNYLessonOrUnit',
+    lesson_or_document = {
+        'kind': 'EngageNYLessonOrDocument',
         'title': get_text(details),
         'url': make_fully_qualified_url(details['href'])
     }
-    domain_or_unit['lessons_or_documents'].append(lesson_or_unit)
+    domain_or_unit['lessons_or_documents'].append(lesson_or_document)
 
 def crawling_part():
     """
