@@ -1,9 +1,11 @@
+chefdata/pdfs
 token.txt
 restore
 .ricecookerfilecache/
 .ricecookerfilecache/*
 .webcache
 storage
+.#*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
