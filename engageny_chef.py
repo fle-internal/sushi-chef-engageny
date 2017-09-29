@@ -125,9 +125,6 @@ def make_fully_qualified_url(url):
 # CRAWLING
 ################################################################################
 
-def download_module(): # for ELA
-    pass
-
 CONTENT_OR_RESOURCE_URL_RE = compile(r'/(content|resource)/*')
 def crawl(root_url):
     doc = get_parsed_html_from_url(root_url)
@@ -278,11 +275,48 @@ def crawling_part():
 # SCRAPING
 ################################################################################
 
-# def download_ela_grades
-# def download_ela_grade
-# def download_ela_module
-# def download_ela_unit
-# def download_ela_lesson
+def download_ela_grades(channel_tree, grades):
+    for grade in grades:
+        download_ela_grade(channel_tree, grade)
+
+def download_ela_grade(channel_tree, grade):
+    url = grade['url']
+    grade_page = get_parsed_html_from_url(url)
+    topic_node = dict(
+        kind='TopicNode',
+        source_id=url,
+        title=grade['title'],
+        description=get_description(grade_page),
+        children=[]
+    )
+    for strand_or_module in grade['strands_or_modules']:
+        download_ela_strand_or_module(topic_node, strand_or_module)
+    channel_tree['children'].append(topic_node)
+
+def download_ela_strand_or_module(topic, strand_or_module):
+    url = strand_or_module['url']
+    strand_or_module_page = get_parsed_html_from_url(url)
+    strand_or_module_node = dict(
+        kind='TopicNode',
+        source_id=url,
+        title=strand_or_module['title'],
+        description=get_description(strand_or_module_page),
+        children=[],
+    )
+    for domain_or_unit in strand_or_module['domains_or_units']:
+        download_ela_domain_or_unit(strand_or_module_node, domain_or_unit)
+    topic['children'].append(strand_or_module_node)
+
+def download_ela_domain_or_unit(strand_or_module, domain_or_unit):
+    url = domain_or_unit['url']
+    domain_or_unit_page = get_parsed_html_from_url(url)
+    lesson_or_document_node = dict(
+        kind='DocumentNode',
+        source_id=url,
+        title=domain_or_unit['title'],
+        description=get_description(domain_or_unit_page),
+    )
+    strand_or_module['children'].append(lesson_or_document_node)
 
 def download_math_grades(channel_tree, grades):
     for grade in grades:
@@ -501,12 +535,12 @@ def download_math_lesson(parent, lesson):
 def build_scraping_json_tree(web_resource_tree):
     channel_tree = dict(
         kind='ChannelNode',
-        title='NOT USED ' +  web_resource_tree['title'],
+        title=web_resource_tree['title'],
         language=web_resource_tree['language'],
         children=[],
     )
     download_math_grades(channel_tree, web_resource_tree['children']['math']['grades'])
-    # TODO(cesarn): download_ela_grades(channel_tree, web_resource_tree['children']['ela']['grades'])
+    download_ela_grades(channel_tree, web_resource_tree['children']['ela']['grades'])
     return channel_tree
 
 def scraping_part():
