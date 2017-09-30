@@ -250,7 +250,7 @@ def crawling_part():
         kind="EngageNYWebResourceTree",
         title="Engage NY Web Resource Tree (ELS and CCSSM)",
         language='en',
-        children = {
+        children={
             'math': {
                 'grades': math_hierarchy,
             },
