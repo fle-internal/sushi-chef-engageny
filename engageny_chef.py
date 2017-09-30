@@ -310,13 +310,16 @@ def download_ela_strand_or_module(topic, strand_or_module):
 def download_ela_domain_or_unit(strand_or_module, domain_or_unit):
     url = domain_or_unit['url']
     domain_or_unit_page = get_parsed_html_from_url(url)
-    lesson_or_document_node = dict(
-        kind='DocumentNode',
+    domain_or_unit_node = dict(
+        kind='TopicNode',
         source_id=url,
         title=domain_or_unit['title'],
         description=get_description(domain_or_unit_page),
+        children=[],
     )
-    strand_or_module['children'].append(lesson_or_document_node)
+    for lesson_or_document in domain_or_unit['lessons_or_documents']:
+        download_math_lesson(domain_or_unit_node['children'], lesson_or_document)
+    strand_or_module['children'].append(domain_or_unit_node)
 
 def download_math_grades(channel_tree, grades):
     for grade in grades:
@@ -539,8 +542,8 @@ def build_scraping_json_tree(web_resource_tree):
         language=web_resource_tree['language'],
         children=[],
     )
-    download_math_grades(channel_tree, web_resource_tree['children']['math']['grades'])
     download_ela_grades(channel_tree, web_resource_tree['children']['ela']['grades'])
+    # download_math_grades(channel_tree, web_resource_tree['children']['math']['grades'])
     return channel_tree
 
 def scraping_part():
