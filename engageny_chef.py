@@ -539,7 +539,7 @@ def download_math_lesson(parent, lesson):
 def build_scraping_json_tree(web_resource_tree):
     channel_tree = dict(
         source_domain='engageny.org',
-        source_id='engagny',
+        source_id='engageny',
         title=web_resource_tree['title'],
         description='EngageNY Common Core Curriculum Content... ELA and CCSSM combined',
         language=web_resource_tree['language'],
