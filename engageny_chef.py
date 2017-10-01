@@ -565,7 +565,7 @@ def scraping_part(json_tree_path):
     LOGGER.info('Finished building ricecooker_json_tree')
 
     # Write out ricecooker_json_tree.json
-    write_tree_to_json_tree(json_tree_path, ricecooker_json_tree)
+    write_tree_to_json_tree(os.path.join(TREES_DATA_DIR, SCRAPING_STAGE_OUTPUT) , ricecooker_json_tree)
 
 
 
