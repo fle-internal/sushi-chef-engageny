@@ -515,14 +515,14 @@ def download_math_lesson(parent, lesson):
 
     for row in resources_rows:
         doc_link = row.find_all('td')[1].find('a')
-        # get document source_id from row.find_all('td')[1].find('a')['href]  e.g. 44251
         title = doc_link['title'].replace('Download ','')
-        doc_path = make_fully_qualified_url(doc_link['href']).split('?')[0]
+        sanitized_doc_link = doc_link['href'].split('?')[0]
+        doc_path = make_fully_qualified_url(sanitized_doc_link)
         description = get_text(doc_link)
         if 'pdf' in doc_path:
             document_node = dict(
                 kind=content_kinds.DOCUMENT,
-                source_id=lesson_url+":"+title, # FIXME
+                source_id=lesson_url + ":" + sanitized_doc_link,
                 title=title,
                 author='Engage NY',
                 description=description,
@@ -550,7 +550,7 @@ def build_scraping_json_tree(web_resource_tree):
         children=[],
     )
     download_ela_grades(channel_tree, web_resource_tree['children']['ela']['grades'])
-    # download_math_grades(channel_tree, web_resource_tree['children']['math']['grades'])
+    download_math_grades(channel_tree, web_resource_tree['children']['math']['grades'])
     return channel_tree
 
 def scraping_part(json_tree_path):
