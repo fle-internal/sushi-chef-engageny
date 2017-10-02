@@ -95,6 +95,32 @@ def get_name_and_dict_from_file_path(file_path):
         ],
     )
 
+UNIT_LEVEL_FILENAME_RE = compile(r'^.*(?P<grade>\d+)(?P<moduleletter>\w+)(?P<modulenumber>\d+)\.(?P<unitnumber>\d+)(?P<name>\w+).*$')
+def get_name_and_dict_from_unit_file_path(file_path):
+    m = UNIT_LEVEL_FILENAME_RE.match(file_path)
+    if not m:
+        raise Exception('UNIT_LEVEL_FILENAME_RE could not match')
+
+    grade, module_letter, module_number, unit_number, name = m.groups()
+    title = f'Grade {grade} '
+    if module_letter == 'm':
+        title += f"module {module_number} Unit {unit_number} {name}"
+    title = title.title()
+    return name.lower(), dict(
+        kind=content_kinds.DOCUMENT,
+        source_id=file_path,
+        title=title,
+        description=title,
+        license=ENGAGENY_LICENSE.as_dict(),
+        files=[
+            dict(
+                file_type=content_kinds.DOCUMENT,
+                path=file_path
+            )
+        ],
+    )
+
+
 ITEM_FROM_BUNDLE_RE = re.compile(r'^.+/(?P<area>.+(-i+){0,1})-(?P<grade>.+)-(?P<module>.+)-(?P<assessment_cutoff>.+-){0,1}(?P<level>.+)-(?P<type>.+)\..+$')
 def get_item_from_bundle_title(path):
     m = ITEM_FROM_BUNDLE_RE.match(path)
@@ -353,21 +379,40 @@ def download_ela_strand_or_module(topic, strand_or_module):
 
     # Gather the children at the next level down
     for domain_or_unit in strand_or_module['domains_or_units']:
-        download_ela_domain_or_unit(strand_or_module_node, domain_or_unit)
+        download_ela_domain_or_unit(strand_or_module_node, domain_or_unit, files)
     topic['children'].append(strand_or_module_node)
 
-def download_ela_domain_or_unit(strand_or_module, domain_or_unit):
+def download_ela_domain_or_unit(strand_or_module, domain_or_unit, files):
     url = domain_or_unit['url']
+    title = domain_or_unit['title']
     domain_or_unit_page = get_parsed_html_from_url(url)
     domain_or_unit_node = dict(
         kind=content_kinds.TOPIC,
         source_id=url,
-        title=domain_or_unit['title'],
+        title=title,
         description=get_description(domain_or_unit_page),
         thumbnail=get_thumbnail_url(domain_or_unit_page),
         license=ENGAGENY_LICENSE.as_dict(),
         children=[],
     )
+
+    # Gather the unit's assets
+    if files:
+        node_children = domain_or_unit_node['children']
+        unit_files = list(filter(lambda filename: title in filename, files))
+        children = sorted(
+            map(lambda file_path: get_name_and_dict_from_unit_file_path(file_path), unit_files),
+            key=lambda t:t[0]
+        )
+        children_dict = dict(children)
+        overview = children_dict.get('unit')
+        if overview:
+            node_children.append(overview)
+        for name, child in children:
+            if name == 'unit':
+                continue
+            node_children.append(child)
+
     for lesson_or_document in domain_or_unit['lessons_or_documents']:
         download_math_lesson(domain_or_unit_node['children'], lesson_or_document)
     strand_or_module['children'].append(domain_or_unit_node)
