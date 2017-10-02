@@ -296,6 +296,7 @@ def download_ela_strand_or_module(topic, strand_or_module):
         source_id=url,
         title=strand_or_module['title'],
         description=get_description(strand_or_module_page),
+        thumbnail=get_thumbnail_url(strand_or_module_page),
         children=[],
     )
     for domain_or_unit in strand_or_module['domains_or_units']:
@@ -310,6 +311,7 @@ def download_ela_domain_or_unit(strand_or_module, domain_or_unit):
         source_id=url,
         title=domain_or_unit['title'],
         description=get_description(domain_or_unit_page),
+        thumbnail=get_thumbnail_url(domain_or_unit_page),
         license=ENGAGENY_LICENSE.as_dict(),
         children=[],
     )
@@ -500,6 +502,7 @@ def download_math_lesson(parent, lesson):
         title=title,
         description=description,
         language='en',
+        thumbnail=get_thumbnail_url(lesson_page),
         children=[],
     )
     resources_pane = lesson_page.find('div', class_='pane-downloadable-resources')
