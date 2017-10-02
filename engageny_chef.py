@@ -70,6 +70,31 @@ get_text = lambda x: "" if x is None else x.get_text().replace('\r', '').replace
 def get_suffix(path):
     return PurePosixPath(path).suffix
 
+MODULE_LEVEL_FILENAME_RE = compile(r'^.*(?P<grade>\d+)(?P<moduleletter>\w+)(?P<modulenumber>\d+)\.(?P<name>\w+).*$')
+def get_name_and_dict_from_file_path(file_path):
+    m = MODULE_LEVEL_FILENAME_RE.match(file_path)
+    if not m:
+        raise Exception('MODULE_LEVEL_FILENAME_RE could not match')
+
+    grade, module_letter, module_number, name = m.groups()
+    title = f'Grade {grade} '
+    if module_letter == 'm':
+        title += f"module {module_number} {name}"
+    title = title.title()
+    return name.lower(), dict(
+        kind=content_kinds.DOCUMENT,
+        source_id=file_path,
+        title=title,
+        description=title,
+        license=ENGAGENY_LICENSE.as_dict(),
+        files=[
+            dict(
+                file_type=content_kinds.DOCUMENT,
+                path=file_path
+            )
+        ],
+    )
+
 ITEM_FROM_BUNDLE_RE = re.compile(r'^.+/(?P<area>.+(-i+){0,1})-(?P<grade>.+)-(?P<module>.+)-(?P<assessment_cutoff>.+-){0,1}(?P<level>.+)-(?P<type>.+)\..+$')
 def get_item_from_bundle_title(path):
     m = ITEM_FROM_BUNDLE_RE.match(path)
@@ -109,13 +134,16 @@ def download_zip_file(url):
             archive.extract(pdf, PDFS_DATA_DIR)
     return (True, archive_member_names)
 
+def strip_token(url):
+    return url.split('?')[0]
+
 def make_fully_qualified_url(url):
     if url.startswith("//"):
         print('unexpecded // url', url)
-        return "https:" + url
+        return strip_token("https:" + url)
     elif url.startswith("/"):
-        return "https://www.engageny.org" + url
-    return url
+        return strip_token("https://www.engageny.org" + url)
+    return strip_token(url)
 
 # CRAWLING
 ################################################################################
@@ -288,6 +316,7 @@ def download_ela_grade(channel_tree, grade):
         download_ela_strand_or_module(topic_node, strand_or_module)
     channel_tree['children'].append(topic_node)
 
+ELA_MODULE_ZIP_FILE_RE = compile(r'^(/file/\d+/download/.*-\d+-pdf.zip).*$') 
 def download_ela_strand_or_module(topic, strand_or_module):
     url = strand_or_module['url']
     strand_or_module_page = get_parsed_html_from_url(url)
@@ -299,6 +328,30 @@ def download_ela_strand_or_module(topic, strand_or_module):
         thumbnail=get_thumbnail_url(strand_or_module_page),
         children=[],
     )
+
+    # Gather the module's children from zip file
+    resources = get_downloadable_resources_section(strand_or_module_page)
+    if resources:
+        module_zip = resources.find('a', attrs={'href': ELA_MODULE_ZIP_FILE_RE})
+        if module_zip:
+            success, files = download_zip_file(make_fully_qualified_url(module_zip['href']))
+            if success:
+                node_children = strand_or_module_node['children']
+                module_files = list(filter(lambda filename: 'Module Level Documents' in filename, files))
+                children = sorted(
+                    map(lambda file_path: get_name_and_dict_from_file_path(file_path), module_files),
+                    key=lambda t: t[0]
+                )
+                children_dict = dict(children)
+                overview = children_dict.get('module')
+                if overview:
+                    node_children.append(overview)
+                for name, child in children:
+                    if name == 'module':
+                        continue
+                    node_children.append(child)
+
+    # Gather the children at the next level down
     for domain_or_unit in strand_or_module['domains_or_units']:
         download_ela_domain_or_unit(strand_or_module_node, domain_or_unit)
     topic['children'].append(strand_or_module_node)
@@ -341,7 +394,7 @@ def download_math_grade(channel_tree, grade):
     channel_tree['children'].append(topic_node)
 
 def get_thumbnail_url(page):
-    thumbnail_url = page.find('meta', property='og:image')['content']
+    thumbnail_url = page.find('img', class_='img-responsive')['src'].split('?')[0]
     return None if get_suffix(thumbnail_url) == '.gif' else thumbnail_url
 
 MODULE_ASSESSMENTS_RE = compile(r'^(?P<segmentsonly>(.)+-as{1,2}es{1,2}ments{0,1}.(zip|pdf))(.)*')
@@ -491,6 +544,12 @@ def download_math_lessons(parent, lessons):
     for lesson in lessons:
         download_math_lesson(parent, lesson)
 
+def get_downloadable_resources_section(page):
+    return page.find('div', class_='pane-downloadable-resources')
+
+def get_related_resources_section(page):
+    return page.find('div', class_='pane-related-items')
+
 def download_math_lesson(parent, lesson):
     lesson_url = lesson['url']
     lesson_page = get_parsed_html_from_url(lesson_url)
@@ -505,7 +564,7 @@ def download_math_lesson(parent, lesson):
         thumbnail=get_thumbnail_url(lesson_page),
         children=[],
     )
-    resources_pane = lesson_page.find('div', class_='pane-downloadable-resources')
+    resources_pane = get_downloadable_resources_section(lesson_page)
 
     if resources_pane is None:
         return
