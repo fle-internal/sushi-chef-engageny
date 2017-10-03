@@ -17,17 +17,12 @@ from re import compile
 import zipfile
 import io
 
-from le_utils.constants import content_kinds, file_formats, licenses
-from ricecooker.chefs import SushiChef
-from ricecooker.classes import nodes
-from ricecooker.classes import files
-from ricecooker.classes.files import HTMLZipFile
+from le_utils.constants import content_kinds, licenses
+from ricecooker.chefs import JsonTreeChef
 from ricecooker.classes.licenses import get_license
-from ricecooker.classes.nodes import ChannelNode, HTML5AppNode, TopicNode
-from ricecooker.config import LOGGER
-from ricecooker.exceptions import UnknownFileTypeError, raise_for_invalid_channel
 from ricecooker.utils.caching import CacheForeverHeuristic, FileCache, CacheControlAdapter, InvalidatingCacheControlAdapter
 from ricecooker.utils.html import download_file
+from ricecooker.utils.jsontrees import write_tree_to_json_tree
 from ricecooker.utils.zip import create_predictable_zip
 
 from pathlib import PurePosixPath
@@ -75,6 +70,66 @@ get_text = lambda x: "" if x is None else x.get_text().replace('\r', '').replace
 def get_suffix(path):
     return PurePosixPath(path).suffix
 
+MODULE_LEVEL_FILENAME_RE = compile(r'^.+/.+/.+/(?:Module\sLevel\sDocuments/){0,1}(?P<grade>\d+)(?P<moduleletter>\w)(?P<modulenumber>\w+)\.(?P<name>\D+)\.pdf$')
+def get_name_and_dict_from_file_path(file_path):
+    m = MODULE_LEVEL_FILENAME_RE.match(file_path)
+    if not m:
+        raise Exception('MODULE_LEVEL_FILENAME_RE could not match')
+
+    grade, module_letter, module_number, name = m.groups()
+    title = f'Grade {grade} '
+    if module_letter == 'm':
+        title += f"module {module_number}"
+    if name == 'module':
+        title += " overview"
+    else:
+        title += " " + name
+    title = title.title()
+    return name.lower(), dict(
+        kind=content_kinds.DOCUMENT,
+        source_id=file_path,
+        title=title,
+        description=title,
+        license=ENGAGENY_LICENSE.as_dict(),
+        files=[
+            dict(
+                file_type=content_kinds.DOCUMENT,
+                path=file_path
+            )
+        ],
+    )
+
+UNIT_LEVEL_FILENAME_RE = compile(r'^.*(?P<grade>\d+)(?P<moduleletter>\w+)(?P<modulenumber>\d+)\.(?P<unitnumber>\d+)(?P<name>\D+)\.pdf$')
+def get_name_and_dict_from_unit_file_path(file_path):
+    m = UNIT_LEVEL_FILENAME_RE.match(file_path)
+    if not m:
+        return None
+
+    grade, module_letter, module_number, unit_number, name = m.groups()
+    title = f'Grade {grade} '
+    if module_letter == 'm':
+        title += f"module {module_number} Unit {unit_number}"
+    if name == 'unit':
+        title += " Overview"
+    else:
+        title += " " + name
+
+    title = title.title()
+    return name.lower(), dict(
+        kind=content_kinds.DOCUMENT,
+        source_id=file_path,
+        title=title,
+        description=title,
+        license=ENGAGENY_LICENSE.as_dict(),
+        files=[
+            dict(
+                file_type=content_kinds.DOCUMENT,
+                path=file_path
+            )
+        ],
+    )
+
+
 ITEM_FROM_BUNDLE_RE = re.compile(r'^.+/(?P<area>.+(-i+){0,1})-(?P<grade>.+)-(?P<module>.+)-(?P<assessment_cutoff>.+-){0,1}(?P<level>.+)-(?P<type>.+)\..+$')
 def get_item_from_bundle_title(path):
     m = ITEM_FROM_BUNDLE_RE.match(path)
@@ -114,13 +169,16 @@ def download_zip_file(url):
             archive.extract(pdf, PDFS_DATA_DIR)
     return (True, archive_member_names)
 
+def strip_token(url):
+    return url.split('?')[0]
+
 def make_fully_qualified_url(url):
     if url.startswith("//"):
         print('unexpecded // url', url)
-        return "https:" + url
+        return strip_token("https:" + url)
     elif url.startswith("/"):
-        return "https://www.engageny.org" + url
-    return url
+        return strip_token("https://www.engageny.org" + url)
+    return strip_token(url)
 
 # CRAWLING
 ################################################################################
@@ -255,7 +313,7 @@ def crawling_part():
         kind="EngageNYWebResourceTree",
         title="Engage NY Web Resource Tree (ELS and CCSSM)",
         language='en',
-        children = {
+        children={
             'math': {
                 'grades': math_hierarchy,
             },
@@ -283,7 +341,7 @@ def download_ela_grade(channel_tree, grade):
     url = grade['url']
     grade_page = get_parsed_html_from_url(url)
     topic_node = dict(
-        kind='TopicNode',
+        kind=content_kinds.TOPIC,
         source_id=url,
         title=grade['title'],
         description=get_description(grade_page),
@@ -293,30 +351,84 @@ def download_ela_grade(channel_tree, grade):
         download_ela_strand_or_module(topic_node, strand_or_module)
     channel_tree['children'].append(topic_node)
 
+ELA_MODULE_ZIP_FILE_RE = compile(r'^(/file/\d+/download/.*-\w+-pdf.zip).*$') 
 def download_ela_strand_or_module(topic, strand_or_module):
     url = strand_or_module['url']
     strand_or_module_page = get_parsed_html_from_url(url)
     strand_or_module_node = dict(
-        kind='TopicNode',
+        kind=content_kinds.TOPIC,
         source_id=url,
         title=strand_or_module['title'],
         description=get_description(strand_or_module_page),
+        thumbnail=get_thumbnail_url(strand_or_module_page),
         children=[],
     )
+
+    # Gather the module's children from zip file
+    resources = get_downloadable_resources_section(strand_or_module_page)
+    files = []
+    if resources:
+        module_zip = resources.find('a', attrs={'href': ELA_MODULE_ZIP_FILE_RE})
+        if module_zip:
+            success, files = download_zip_file(make_fully_qualified_url(module_zip['href']))
+            if success:
+                node_children = strand_or_module_node['children']
+                module_files = list(filter(lambda filename: MODULE_LEVEL_FILENAME_RE.match(filename) is not None, files))
+                children = sorted(
+                    map(lambda file_path: get_name_and_dict_from_file_path(file_path), module_files),
+                    key=lambda t: t[0]
+                )
+                children_dict = dict(children)
+                overview = children_dict.get('module') or children_dict.get('overview')
+                if overview:
+                    node_children.append(overview)
+                for name, child in children:
+                    if name == 'module' or name == 'overview':
+                        continue
+                    node_children.append(child)
+        else:
+            # TODO: Find the pdfs and add them as documents
+            pass
+
+    # Gather the children at the next level down
     for domain_or_unit in strand_or_module['domains_or_units']:
-        download_ela_domain_or_unit(strand_or_module_node, domain_or_unit)
+        download_ela_domain_or_unit(strand_or_module_node, domain_or_unit, files)
     topic['children'].append(strand_or_module_node)
 
-def download_ela_domain_or_unit(strand_or_module, domain_or_unit):
+def download_ela_domain_or_unit(strand_or_module, domain_or_unit, files):
     url = domain_or_unit['url']
+    title = domain_or_unit['title']
     domain_or_unit_page = get_parsed_html_from_url(url)
-    lesson_or_document_node = dict(
-        kind='DocumentNode',
+    domain_or_unit_node = dict(
+        kind=content_kinds.TOPIC,
         source_id=url,
-        title=domain_or_unit['title'],
+        title=title,
         description=get_description(domain_or_unit_page),
+        thumbnail=get_thumbnail_url(domain_or_unit_page),
+        license=ENGAGENY_LICENSE.as_dict(),
+        children=[],
     )
-    strand_or_module['children'].append(lesson_or_document_node)
+
+    # Gather the unit's assets
+    if files:
+        node_children = domain_or_unit_node['children']
+        unit_files = list(filter(lambda filename: title in filename, files))
+        children = sorted(
+            filter(lambda t: t is not None,  map(lambda file_path: get_name_and_dict_from_unit_file_path(file_path), unit_files)),
+            key=lambda t:t[0]
+        )
+        children_dict = dict(children)
+        overview = children_dict.get('unit')
+        if overview:
+            node_children.append(overview)
+        for name, child in children:
+            if name == 'unit':
+                continue
+            node_children.append(child)
+
+    for lesson_or_document in domain_or_unit['lessons_or_documents']:
+        download_math_lesson(domain_or_unit_node['children'], lesson_or_document)
+    strand_or_module['children'].append(domain_or_unit_node)
 
 def download_math_grades(channel_tree, grades):
     for grade in grades:
@@ -329,7 +441,7 @@ def download_math_grade(channel_tree, grade):
     url = grade['url']
     grade_page = get_parsed_html_from_url(url)
     topic_node = dict(
-        kind='TopicNode',
+        kind=content_kinds.TOPIC,
         source_id=url,
         title=grade['title'],
         description=get_description(grade_page),
@@ -340,7 +452,7 @@ def download_math_grade(channel_tree, grade):
     channel_tree['children'].append(topic_node)
 
 def get_thumbnail_url(page):
-    thumbnail_url = page.find('meta', property='og:image')['content']
+    thumbnail_url = page.find('img', class_='img-responsive')['src'].split('?')[0]
     return None if get_suffix(thumbnail_url) == '.gif' else thumbnail_url
 
 MODULE_ASSESSMENTS_RE = compile(r'^(?P<segmentsonly>(.)+-as{1,2}es{1,2}ments{0,1}.(zip|pdf))(.)*')
@@ -366,14 +478,15 @@ def download_math_module(topic_node, mod):
         module_overview_full_path = make_fully_qualified_url(module_overview_file)
         thumbnail_url = get_thumbnail_url(module_page)
         overview_node = dict(
-            kind='DocumentNode',
+            kind=content_kinds.DOCUMENT,
             source_id=url,
             title=mod['title'] + " Overview",
             description=get_description(module_page),
+            license=ENGAGENY_LICENSE.as_dict(),
             thumbnail=thumbnail_url,
             files=[
                 dict(
-                    file_type='DocumentFile',
+                    file_type=content_kinds.DOCUMENT,
                     path=module_overview_full_path
                 ),
             ]
@@ -393,13 +506,14 @@ def download_math_module(topic_node, mod):
             file_extension = get_suffix(module_assessment_file)
             if file_extension == ".pdf":
                 assessment_node = dict(
-                    kind='DocumentNode',
+                    kind=content_kinds.DOCUMENT,
                     source_id=module_assessment_full_path,
                     title=get_text(module_assessment_anchor),
                     description=module_assessment_anchor['title'],
+                    license=ENGAGENY_LICENSE.as_dict(),
                     files=[
                         dict(
-                            file_type='DocumentFile',
+                            file_type=content_kinds.DOCUMENT,
                             path=module_assessment_full_path
                     )
                 ])
@@ -419,13 +533,14 @@ def download_math_module(topic_node, mod):
                     continue
                 title = get_item_from_bundle_title(file)
                 initial_children.append(dict(
-                    kind='DocumentNode',
+                    kind=content_kinds.DOCUMENT,
                     source_id=file,
                     title=title,
                     description=title,
+                    license=ENGAGENY_LICENSE.as_dict(),
                     files=[
                         dict(
-                            file_type='DocumentFile',
+                            file_type=content_kinds.DOCUMENT,
                             path=file
                         )
                     ]
@@ -434,7 +549,7 @@ def download_math_module(topic_node, mod):
             print(success, 'download zip file for', module_assessment_full_path)
 
     module_node = dict(
-        kind='TopicNode',
+        kind=content_kinds.TOPIC,
         source_id=url,
         title=mod['title'],
         description=description,
@@ -457,14 +572,15 @@ def download_math_topic(module_node, topic):
     if topic_overview_anchor is not None:
         overview_document_file = MODULE_OVERVIEW_DOCUMENT_RE.match(topic_overview_anchor['href']).group('segmentsonly')
         overview_node = dict(
-            kind='DocumentNode',
+            kind=content_kinds.DOCUMENT,
             source_id='',
             title=topic['title'] + ' Overview',
             description='description',
+            license=ENGAGENY_LICENSE.as_dict(),
             thumbnail=get_thumbnail_url(topic_page),
             files=[
                 dict(
-                    file_type='DocumentFile',
+                    file_type=content_kinds.DOCUMENT,
                     path=make_fully_qualified_url(overview_document_file)
                 )
             ]
@@ -474,7 +590,7 @@ def download_math_topic(module_node, topic):
     download_math_lessons(initial_children, topic['lessons'])
 
     topic_node = dict(
-        kind='TopicNode',
+        kind=content_kinds.TOPIC,
         source_id=url,
         title=topic['title'],
         description=description,
@@ -486,20 +602,27 @@ def download_math_lessons(parent, lessons):
     for lesson in lessons:
         download_math_lesson(parent, lesson)
 
+def get_downloadable_resources_section(page):
+    return page.find('div', class_='pane-downloadable-resources')
+
+def get_related_resources_section(page):
+    return page.find('div', class_='pane-related-items')
+
 def download_math_lesson(parent, lesson):
     lesson_url = lesson['url']
     lesson_page = get_parsed_html_from_url(lesson_url)
     title = lesson['title']
     description = get_description(lesson_page)
     lesson_data = dict(
-        kind='TopicNode',
+        kind=content_kinds.TOPIC,
         source_id=lesson_url,
         title=title,
         description=description,
         language='en',
+        thumbnail=get_thumbnail_url(lesson_page),
         children=[],
     )
-    resources_pane = lesson_page.find('div', class_='pane-downloadable-resources')
+    resources_pane = get_downloadable_resources_section(lesson_page)
 
     if resources_pane is None:
         return
@@ -509,20 +632,21 @@ def download_math_lesson(parent, lesson):
 
     for row in resources_rows:
         doc_link = row.find_all('td')[1].find('a')
-        # get document source_id from row.find_all('td')[1].find('a')['href]  e.g. 44251
         title = doc_link['title'].replace('Download ','')
-        doc_path = make_fully_qualified_url(doc_link['href']).split('?')[0]
+        sanitized_doc_link = doc_link['href'].split('?')[0]
+        doc_path = make_fully_qualified_url(sanitized_doc_link)
         description = get_text(doc_link)
         if 'pdf' in doc_path:
             document_node = dict(
-                kind='DocumentNode',
-                source_id=lesson_url+":"+title, # FIXME
+                kind=content_kinds.DOCUMENT,
+                source_id=lesson_url + ":" + sanitized_doc_link,
                 title=title,
                 author='Engage NY',
                 description=description,
+                license=ENGAGENY_LICENSE.as_dict(),
                 thumbnail=None,
                 files=[dict(
-                    file_type='DocumentFile',
+                    file_type=content_kinds.DOCUMENT,
                     path=doc_path,
                     language='en',
                 )],
@@ -534,18 +658,22 @@ def download_math_lesson(parent, lesson):
 
 def build_scraping_json_tree(web_resource_tree):
     channel_tree = dict(
-        kind='ChannelNode',
+        source_domain='engageny.org',
+        source_id='engageny',
         title=web_resource_tree['title'],
+        description='EngageNY Common Core Curriculum Content... ELA and CCSSM combined',
         language=web_resource_tree['language'],
+        thumbnail='./content/engageny_logo.png',
         children=[],
     )
-    download_math_grades(channel_tree, web_resource_tree['children']['math']['grades'])
     download_ela_grades(channel_tree, web_resource_tree['children']['ela']['grades'])
+    download_math_grades(channel_tree, web_resource_tree['children']['math']['grades'])
     return channel_tree
 
-def scraping_part():
+def scraping_part(json_tree_path):
     """
-    Download all categories, subpages, modules, and resources from engageny.
+    Download all categories, subpages, modules, and resources from engageny and
+    store them as a ricecooker json tree in the file `json_tree_path`.
     """
     # Read web_resource_trees.json
     with open(os.path.join(TREES_DATA_DIR, CRAWLING_STAGE_OUTPUT)) as json_file:
@@ -554,117 +682,17 @@ def scraping_part():
 
     # Build a Ricecooker tree from scraping process
     ricecooker_json_tree = build_scraping_json_tree(web_resource_tree)
-
     LOGGER.info('Finished building ricecooker_json_tree')
 
     # Write out ricecooker_json_tree.json
-    json_file_name = os.path.join(TREES_DATA_DIR, SCRAPING_STAGE_OUTPUT)
-    with open(json_file_name, 'w') as json_file:
-        json.dump(ricecooker_json_tree, json_file, indent=2)
-        LOGGER.info('Scraping result stored in ' + json_file_name)
-
-    return ricecooker_json_tree
-
-
-# CONSTRUCT CHANNEL FROM RICECOOKER JSON TREE
-################################################################################
-# Note: the functions below are used in several chefs so might become part of `ricecooker`
-
-def build_tree(parent_node, sourcetree):
-    """
-    Parse nodes given in `sourcetree` list and add as children of `parent_node`.
-    """
-    EXPECTED_NODE_TYPES = ['TopicNode', 'AudioNode', 'DocumentNode', 'HTML5AppNode']
-
-    for source_node in sourcetree:
-        kind = source_node['kind']
-        if kind not in EXPECTED_NODE_TYPES:
-            logger.critical('Unexpected Node type found: ' + kind)
-            raise NotImplementedError('Unexpected Node type found in channel json.')
-
-        if kind == 'TopicNode':
-            child_node = nodes.TopicNode(
-                source_id=source_node["source_id"],
-                title=source_node["title"],
-                author=source_node.get("author"),
-                description=source_node.get("description"),
-                thumbnail=source_node.get("thumbnail"),
-            )
-            parent_node.add_child(child_node)
-            source_tree_children = source_node.get("children", [])
-            build_tree(child_node, source_tree_children)
-
-        elif kind == 'AudioNode':
-            child_node = nodes.AudioNode(
-                source_id=source_node["source_id"],
-                title=source_node["title"],
-                license=ENGAGENY_LICENSE,
-                author=source_node.get("author"),
-                description=source_node.get("description"),
-                # derive_thumbnail=True,                    # video-specific data
-                thumbnail=source_node.get('thumbnail'),
-            )
-            add_files(child_node, source_node.get("files") or [])
-            parent_node.add_child(child_node)
-
-        elif kind == 'DocumentNode':
-            child_node = nodes.DocumentNode(
-
-                source_id=source_node["source_id"],
-                title=source_node["title"],
-                license=ENGAGENY_LICENSE,
-                author=source_node.get("author"),
-                description=source_node.get("description"),
-                thumbnail=source_node.get("thumbnail"),
-            )
-            add_files(child_node, source_node.get("files") or [])
-            parent_node.add_child(child_node)
-
-        elif kind == 'HTML5AppNode':
-            child_node = nodes.HTML5AppNode(
-                source_id=source_node["source_id"],
-                title=source_node["title"],
-                license=ENGAGENY_LICENSE,
-                author=source_node.get("author"),
-                description=source_node.get("description"),
-                thumbnail=source_node.get("thumbnail"),
-            )
-            add_files(child_node, source_node.get("files") or [])
-            parent_node.add_child(child_node)
-
-        else:
-            logger.critical("Encountered an unknown content node format.")
-            continue
-
-    return parent_node
-
-
-def add_files(node, file_list):
-    EXPECTED_FILE_TYPES = ['VideoFile', 'ThumbnailFile', 'HTMLZipFile', 'DocumentFile']
-    for f in file_list:
-        file_type = f.get('file_type')
-        if file_type not in EXPECTED_FILE_TYPES:
-            logger.critical(file_type)
-            raise NotImplementedError('Unexpected File type found in channel json.')
-        path = f.get('path')  # usually a URL, not a local path
-        # handle different types of files
-        if file_type == 'VideoFile':
-            node.add_file(files.VideoFile(path=f['path'], ffmpeg_settings=f.get('ffmpeg_settings')))
-        elif file_type == 'ThumbnailFile':
-            node.add_file(files.ThumbnailFile(path=path))
-        elif file_type == 'HTMLZipFile':
-            node.add_file(files.HTMLZipFile(path=path, language=f.get('language')))
-        elif file_type == 'DocumentFile':
-            node.add_file(files.DocumentFile(path=path, language=f.get('language')))
-        else:
-            raise UnknownFileTypeError("Unrecognized file type '{0}'".format(f['path']))
+    write_tree_to_json_tree(os.path.join(TREES_DATA_DIR, SCRAPING_STAGE_OUTPUT) , ricecooker_json_tree)
 
 
 
 # CHEF
 ################################################################################
 
-class EngageNYChef(SushiChef):
+class EngageNYChef(JsonTreeChef):
     """
     This class takes care of downloading resources from engageny.org and uploading
     them to Kolibri Studio, the content curation server.
@@ -681,9 +709,13 @@ class EngageNYChef(SushiChef):
     def scrape(self, args, options):
         """
         PART 2: SCRAPING
-        Builds the ricecooker_json_tree needed to create the ricecooker tree for the channel
+        Build the ricecooker_json_tree that will create the ricecooker channel tree.
         """
-        scraping_part()
+        kwargs = {}     # combined dictionary of argparse args and extra options
+        kwargs.update(args)
+        kwargs.update(options)
+        json_tree_path = self.get_json_tree_path(**kwargs)
+        scraping_part(json_tree_path)
 
 
     def pre_run(self, args, options):
@@ -694,36 +726,18 @@ class EngageNYChef(SushiChef):
         self.scrape(args, options)
 
 
-    def get_channel(self, **kwargs):
+    def get_json_tree_path(self, **kwargs):
         """
-        Returns a ChannelNode that contains all required channel metadata.
+        Return path to the ricecooker json tree file.
+        Parent class `JsonTreeChef` implements get_channel and construct_channel
+        that read their data from the json file specified by this function.
+        Currently there is a single json file SCRAPING_STAGE_OUTPUT, but maybe in
+        the future this function can point to different files depending on the
+        kwarg `lang` (that's how it's done in several other mulitilingual chefs).
         """
-        channel = ChannelNode(
-            source_domain = 'engageny.org',
-            source_id = 'engagny',
-            title = 'Engage NY',
-            thumbnail = './content/engageny_logo.png',
-            description = 'EngageNY Common Core Curriculum Content... ELA and CCSSM combined',
-            language = 'en'
-        )
-        return channel
+        json_tree_path = os.path.join(TREES_DATA_DIR, SCRAPING_STAGE_OUTPUT)
+        return json_tree_path
 
-
-    def construct_channel(self, **kwargs):
-        """
-        Build the channel tree by adding TopicNodes and ContentNode children.
-        """
-        channel = self.get_channel(**kwargs)
-
-        # Load ricecooker json tree data for language `lang`
-        with open(os.path.join(TREES_DATA_DIR, SCRAPING_STAGE_OUTPUT)) as infile:
-            json_tree = json.load(infile)
-            if json_tree is None:
-                raise ValueError('Could not find ricecooker json tree')
-            build_tree(channel, json_tree['children'])
-
-        raise_for_invalid_channel(channel)
-        return channel
 
 
 
