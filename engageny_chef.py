@@ -70,7 +70,7 @@ get_text = lambda x: "" if x is None else x.get_text().replace('\r', '').replace
 def get_suffix(path):
     return PurePosixPath(path).suffix
 
-MODULE_LEVEL_FILENAME_RE = compile(r'^.*(?P<grade>\d+)(?P<moduleletter>\w+)(?P<modulenumber>\d+)\.(?P<name>\w+).*$')
+MODULE_LEVEL_FILENAME_RE = compile(r'^.+/.+/.+/(?:Module\sLevel\sDocuments/){0,1}(?P<grade>\d+)(?P<moduleletter>\w)(?P<modulenumber>\w+)\.(?P<name>\D+)\.pdf$')
 def get_name_and_dict_from_file_path(file_path):
     m = MODULE_LEVEL_FILENAME_RE.match(file_path)
     if not m:
@@ -82,6 +82,8 @@ def get_name_and_dict_from_file_path(file_path):
         title += f"module {module_number}"
     if name == 'module':
         title += " overview"
+    else:
+        title += " " + name
     title = title.title()
     return name.lower(), dict(
         kind=content_kinds.DOCUMENT,
@@ -349,7 +351,7 @@ def download_ela_grade(channel_tree, grade):
         download_ela_strand_or_module(topic_node, strand_or_module)
     channel_tree['children'].append(topic_node)
 
-ELA_MODULE_ZIP_FILE_RE = compile(r'^(/file/\d+/download/.*-\d+-pdf.zip).*$') 
+ELA_MODULE_ZIP_FILE_RE = compile(r'^(/file/\d+/download/.*-\w+-pdf.zip).*$') 
 def download_ela_strand_or_module(topic, strand_or_module):
     url = strand_or_module['url']
     strand_or_module_page = get_parsed_html_from_url(url)
@@ -371,17 +373,17 @@ def download_ela_strand_or_module(topic, strand_or_module):
             success, files = download_zip_file(make_fully_qualified_url(module_zip['href']))
             if success:
                 node_children = strand_or_module_node['children']
-                module_files = list(filter(lambda filename: 'Module Level Documents' in filename, files))
+                module_files = list(filter(lambda filename: MODULE_LEVEL_FILENAME_RE.match(filename) is not None, files))
                 children = sorted(
                     map(lambda file_path: get_name_and_dict_from_file_path(file_path), module_files),
                     key=lambda t: t[0]
                 )
                 children_dict = dict(children)
-                overview = children_dict.get('module')
+                overview = children_dict.get('module') or children_dict.get('overview')
                 if overview:
                     node_children.append(overview)
                 for name, child in children:
-                    if name == 'module':
+                    if name == 'module' or name == 'overview':
                         continue
                     node_children.append(child)
 
