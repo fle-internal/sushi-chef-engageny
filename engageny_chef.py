@@ -79,7 +79,9 @@ def get_name_and_dict_from_file_path(file_path):
     grade, module_letter, module_number, name = m.groups()
     title = f'Grade {grade} '
     if module_letter == 'm':
-        title += f"module {module_number} {name}"
+        title += f"module {module_number}"
+    if name == 'module':
+        title += " overview"
     title = title.title()
     return name.lower(), dict(
         kind=content_kinds.DOCUMENT,
