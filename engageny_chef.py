@@ -138,7 +138,7 @@ def get_name_and_dict_from_unit_file_path(file_path):
     )
 
 
-ITEM_FROM_BUNDLE_RE = re.compile(r'^.+/(?P<area>.+(-i+){0,1})-(?P<grade>.+)-(?P<module>.+)-(?P<assessment_cutoff>.+-){0,1}(?P<level>.+)-(?P<type>.+)\..+$')
+ITEM_FROM_BUNDLE_RE = compile(r'^.+/(?P<area>.+(-i+){0,1})-(?P<grade>.+)-(?P<module>.+)-(?P<assessment_cutoff>.+-){0,1}(?P<level>.+)-(?P<type>.+)\..+$')
 def get_item_from_bundle_title(path):
     m = ITEM_FROM_BUNDLE_RE.match(path)
     if m:
@@ -250,16 +250,18 @@ def visit_module(grade, module_li):
         visit_topic(grade_module['topics'], topic_li)
     grade['modules'].append(grade_module)
 
+RESOURCE_RE = compile(r'^/resource')
+DOMAIN_OR_UNIT_RE = compile(r'\w*\s*(domain|unit)\s*\w*')
 def visit_ela_strand_or_module(grade, strand_or_module_li):
     details_div = strand_or_module_li.find('div', class_='details')
-    details = details_div.find('a',  attrs={'href': compile(r'^/resource')})
+    details = details_div.find('a',  attrs={'href': RESOURCE_RE})
     grade_strand_or_module = {
         'kind': 'EngageNYStrandOrModule',
         'title': get_text(details),
         'url': make_fully_qualified_url(details['href']),
         'domains_or_units': []
     }
-    for domain_or_unit in strand_or_module_li.find('div', class_='tree').find_all('li', attrs={'class': compile(r'\w*\s*(domain|unit)\s*\w*')}):
+    for domain_or_unit in strand_or_module_li.find('div', class_='tree').find_all('li', attrs={'class': DOMAIN_OR_UNIT_RE}):
         visit_ela_domain_or_unit(grade_strand_or_module, domain_or_unit)
     grade['strands_or_modules'].append(grade_strand_or_module)
 
@@ -277,16 +279,17 @@ def visit_topic(topics, topic_li):
         visit_lesson(topic, lesson_li)
     topics.append(topic)
 
+DOCUMENT_OR_LESSON_RE = compile(r'\w*\s*(document|lesson)\w*\s*')
 def visit_ela_domain_or_unit(grade_strand_or_module, domain_or_unit_li):
     details_div = domain_or_unit_li.find('div', class_='details')
-    details = details_div.find('a', attrs={'href': compile(r'^/resource') })
+    details = details_div.find('a', attrs={'href': RESOURCE_RE })
     domain_or_unit = {
         'kind': 'EngageNYDomainOrUnit',
         'title': get_text(details),
         'url': make_fully_qualified_url(details['href']),
         'lessons_or_documents': []
     }
-    for lesson_or_document in domain_or_unit_li.find('div', class_='tree').find_all('li', attrs={'class': compile(r'\w*\s*(document|lesson)\w*\s*') }):
+    for lesson_or_document in domain_or_unit_li.find('div', class_='tree').find_all('li', attrs={'class': DOCUMENT_OR_LESSON_RE }):
         visit_ela_lesson_or_document(domain_or_unit, lesson_or_document)
     grade_strand_or_module['domains_or_units'].append(domain_or_unit)
 
@@ -303,7 +306,7 @@ def visit_lesson(topic, lesson_li):
 
 def visit_ela_lesson_or_document(domain_or_unit, lesson_or_document_li):
     details_div = lesson_or_document_li.find('div', class_='details')
-    details = details_div.find('a', attrs={'href': compile(r'^/resource')})
+    details = details_div.find('a', attrs={'href': RESOURCE_RE })
     lesson_or_document = {
         'kind': 'EngageNYLessonOrDocument',
         'title': get_text(details),
@@ -421,7 +424,7 @@ def download_ela_strand_or_module(topic, strand_or_module):
                         continue
                     node_children.append(child)
         else:
-            node_children.append(get_pdfs_from_downloadable_resources(resource))
+            node_children.append(get_pdfs_from_downloadable_resources(resources))
 
     # Gather the children at the next level down
     for domain_or_unit in strand_or_module['domains_or_units']:
