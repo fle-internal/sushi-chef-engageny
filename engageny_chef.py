@@ -527,17 +527,19 @@ def download_math_module(topic_node, mod):
                 ),
             ]
         )
-        if get_suffix(module_overview_file) == ".pdf":
+        if get_suffix(module_overview_full_path) == ".pdf":
             initial_children.append(overview_node)
         else:
             fetch_overview_bundle = True
+    else:
+        print("didn't find a math module overview match")
 
     module_assessment_anchors = get_module_assessments(module_page)
     if module_assessment_anchors:
         for module_assessment_anchor in module_assessment_anchors:
             module_assessment_file = module_assessment_anchor['href']
             module_assessment_full_path = make_fully_qualified_url(module_assessment_file)
-            file_extension = get_suffix(module_assessment_file)
+            file_extension = get_suffix(module_assessment_full_path)
             if file_extension == ".pdf":
                 assessment_node = dict(
                     kind=content_kinds.DOCUMENT,
@@ -554,8 +556,11 @@ def download_math_module(topic_node, mod):
                 initial_children.append(assessment_node)
             else:
                 fetch_assessment_bundle = True
+    else:
+        print("didn't find a math module assessment(s) match")
 
     if fetch_assessment_bundle:
+        print('will fetch assessment bundle:', module_assessment_full_path)
         success, files = download_zip_file(module_assessment_full_path)
         if success and files:
             files.reverse()
@@ -576,6 +581,8 @@ def download_math_module(topic_node, mod):
                         )
                     ]
                 ))
+        else:
+            print(success, 'download zip file for', module_assessment_full_path)
 
     module_node = dict(
         kind=content_kinds.TOPIC,
@@ -595,22 +602,23 @@ def download_math_topic(module_node, topic):
     initial_children = []
     url = topic['url']
     topic_page = get_parsed_html_from_url(url)
-    description =get_description(topic_page)
+    description = get_description(topic_page)
 
     topic_overview_anchor = get_module_overview_document(topic_page)
     if topic_overview_anchor is not None:
         overview_document_file = topic_overview_anchor['href']
+        document_url = make_fully_qualified_url(overview_document_file)
         overview_node = dict(
             kind=content_kinds.DOCUMENT,
-            source_id='',
+            source_id=document_url,
             title=topic['title'] + ' Overview',
-            description='description',
+            description=description,
             license=ENGAGENY_LICENSE.as_dict(),
             thumbnail=get_thumbnail_url(topic_page),
             files=[
                 dict(
                     file_type=content_kinds.DOCUMENT,
-                    path=make_fully_qualified_url(overview_document_file)
+                    path=document_url,
                 )
             ]
         )
