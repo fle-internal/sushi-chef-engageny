@@ -397,6 +397,7 @@ def download_ela_strand_or_module(topic, strand_or_module):
         thumbnail=get_thumbnail_url(strand_or_module_page),
         children=[],
     )
+    node_children = strand_or_module_node['children']
 
     # Gather the module's children from zip file
     resources = get_downloadable_resources_section(strand_or_module_page)
@@ -404,7 +405,6 @@ def download_ela_strand_or_module(topic, strand_or_module):
     if resources:
         module_zip = resources.find('a', attrs={'href': ELA_MODULE_ZIP_FILE_RE})
         if module_zip:
-            node_children = strand_or_module_node['children']
             success, files = download_zip_file(make_fully_qualified_url(module_zip['href']))
             if success:
                 module_files = list(filter(lambda filename: MODULE_LEVEL_FILENAME_RE.match(filename) is not None, files))
@@ -539,7 +539,7 @@ def download_math_module(topic_node, mod):
                 assessment_node = dict(
                     kind=content_kinds.DOCUMENT,
                     source_id=module_assessment_full_path,
-                    title=get_text(module_assessment_anchor),
+                    title=strip_byte_size(get_text(module_assessment_anchor)),
                     description=module_assessment_anchor['title'],
                     license=ENGAGENY_LICENSE.as_dict(),
                     files=[
@@ -658,10 +658,10 @@ def download_math_lesson(parent, lesson):
 
     for row in resources_rows:
         doc_link = row.find_all('td')[1].find('a')
-        title = doc_link['title'].replace('Download ','')
+        description = get_text(doc_link)
+        title = strip_byte_size(description)
         sanitized_doc_link = doc_link['href'].split('?')[0]
         doc_path = make_fully_qualified_url(sanitized_doc_link)
-        description = get_text(doc_link)
         if 'pdf' in doc_path:
             document_node = dict(
                 kind=content_kinds.DOCUMENT,
