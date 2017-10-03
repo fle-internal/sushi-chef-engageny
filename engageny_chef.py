@@ -510,7 +510,7 @@ def download_math_module(topic_node, mod):
     fetch_assessment_bundle = False
 
     if module_overview_document_anchor is not None:
-        module_overview_file = MODULE_OVERVIEW_DOCUMENT_RE.match(module_overview_document_anchor['href']).group('segmentsonly')
+        module_overview_file = module_overview_document_anchor['href']
         module_overview_full_path = make_fully_qualified_url(module_overview_file)
         thumbnail_url = get_thumbnail_url(module_page)
         overview_node = dict(
@@ -535,7 +535,7 @@ def download_math_module(topic_node, mod):
     module_assessment_anchors = get_module_assessments(module_page)
     if module_assessment_anchors:
         for module_assessment_anchor in module_assessment_anchors:
-            module_assessment_file = MODULE_ASSESSMENTS_RE.match(module_assessment_anchor['href']).group('segmentsonly')
+            module_assessment_file = module_assessment_anchor['href']
             module_assessment_full_path = make_fully_qualified_url(module_assessment_file)
             file_extension = get_suffix(module_assessment_file)
             if file_extension == ".pdf":
@@ -599,7 +599,7 @@ def download_math_topic(module_node, topic):
 
     topic_overview_anchor = get_module_overview_document(topic_page)
     if topic_overview_anchor is not None:
-        overview_document_file = MODULE_OVERVIEW_DOCUMENT_RE.match(topic_overview_anchor['href']).group('segmentsonly')
+        overview_document_file = topic_overview_anchor['href']
         overview_node = dict(
             kind=content_kinds.DOCUMENT,
             source_id='',
