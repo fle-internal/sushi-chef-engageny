@@ -108,7 +108,7 @@ def get_name_and_dict_from_unit_file_path(file_path):
     if name == 'unit':
         title += " Overview"
     else:
-        title += name
+        title += " " + name
 
     title = title.title()
     return name.lower(), dict(
