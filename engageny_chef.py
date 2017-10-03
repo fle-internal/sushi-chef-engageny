@@ -386,6 +386,9 @@ def download_ela_strand_or_module(topic, strand_or_module):
                     if name == 'module' or name == 'overview':
                         continue
                     node_children.append(child)
+        else:
+            # TODO: Find the pdfs and add them as documents
+            pass
 
     # Gather the children at the next level down
     for domain_or_unit in strand_or_module['domains_or_units']:
