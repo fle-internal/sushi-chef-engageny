@@ -65,7 +65,15 @@ LOGGER.setLevel(logging.DEBUG)
 
 # HELPER FUNCTIONS
 ################################################################################
-get_text = lambda x: "" if x is None else x.get_text().replace('\r', '').replace('\n', ' ').strip()
+def get_text(x):
+    return "" if x is None else x.get_text().replace('\r', '').replace('\n', ' ').strip()
+
+STRIP_BYTESIZE_RE = compile(r'^(.*)\s+\((\d+|\d+\.\d+)\s+\w+B\)')
+def strip_byte_size(s):
+    m = STRIP_BYTESIZE_RE.match(s)
+    if not m:
+        raise Exception('STRIP_BYTESIZE_RE did not match')
+    return m.group(1)
 
 def get_suffix(path):
     return PurePosixPath(path).suffix
@@ -174,7 +182,7 @@ def strip_token(url):
 
 def make_fully_qualified_url(url):
     if url.startswith("//"):
-        print('unexpecded // url', url)
+        print('unexpected // url', url)
         return strip_token("https:" + url)
     elif url.startswith("/"):
         return strip_token("https://www.engageny.org" + url)
@@ -351,6 +359,32 @@ def download_ela_grade(channel_tree, grade):
         download_ela_strand_or_module(topic_node, strand_or_module)
     channel_tree['children'].append(topic_node)
 
+PDF_RE=compile(r'^/file/.+/(?P<filename>.+\.pdf).*')
+def get_pdfs_from_downloadable_resources(resources):
+    pdfs = resources.find_all('a', attrs={'href': PDF_RE})
+    if not pdfs:
+        raise StopIteration()
+    files = [None] * len(pdfs)
+    for i, pdf in enumerate(pdfs):
+        url = make_fully_qualified_url(pdf['href'])
+        description = get_text(pdf)
+        title = strip_byte_size(description)
+
+        files[i] = dict(
+            kind=content_kinds.DOCUMENT,
+            source=url,
+            title=title,
+            description=description,
+            license=ENGAGENY_LICENSE.as_dict(),
+            files=[
+                dict(
+                    file_type=content_kinds.DOCUMENT,
+                    path=url,
+                )
+            ]
+        )
+    return files
+
 ELA_MODULE_ZIP_FILE_RE = compile(r'^(/file/\d+/download/.*-\w+-pdf.zip).*$') 
 def download_ela_strand_or_module(topic, strand_or_module):
     url = strand_or_module['url']
@@ -370,9 +404,9 @@ def download_ela_strand_or_module(topic, strand_or_module):
     if resources:
         module_zip = resources.find('a', attrs={'href': ELA_MODULE_ZIP_FILE_RE})
         if module_zip:
+            node_children = strand_or_module_node['children']
             success, files = download_zip_file(make_fully_qualified_url(module_zip['href']))
             if success:
-                node_children = strand_or_module_node['children']
                 module_files = list(filter(lambda filename: MODULE_LEVEL_FILENAME_RE.match(filename) is not None, files))
                 children = sorted(
                     map(lambda file_path: get_name_and_dict_from_file_path(file_path), module_files),
@@ -387,8 +421,7 @@ def download_ela_strand_or_module(topic, strand_or_module):
                         continue
                     node_children.append(child)
         else:
-            # TODO: Find the pdfs and add them as documents
-            pass
+            node_children.append(get_pdfs_from_downloadable_resources(resource))
 
     # Gather the children at the next level down
     for domain_or_unit in strand_or_module['domains_or_units']:
@@ -495,8 +528,6 @@ def download_math_module(topic_node, mod):
             initial_children.append(overview_node)
         else:
             fetch_overview_bundle = True
-    else:
-        print("didn't find a math module overview match")
 
     module_assessment_anchors = get_module_assessments(module_page)
     if module_assessment_anchors:
@@ -520,11 +551,8 @@ def download_math_module(topic_node, mod):
                 initial_children.append(assessment_node)
             else:
                 fetch_assessment_bundle = True
-    else:
-        print("didn't find a math module assessment(s) match")
 
     if fetch_assessment_bundle:
-        print('will fetch assessment bundle:', module_assessment_full_path)
         success, files = download_zip_file(module_assessment_full_path)
         if success and files:
             files.reverse()
@@ -545,8 +573,6 @@ def download_math_module(topic_node, mod):
                         )
                     ]
                 ))
-        else:
-            print(success, 'download zip file for', module_assessment_full_path)
 
     module_node = dict(
         kind=content_kinds.TOPIC,
