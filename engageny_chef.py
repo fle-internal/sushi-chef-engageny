@@ -95,16 +95,21 @@ def get_name_and_dict_from_file_path(file_path):
         ],
     )
 
-UNIT_LEVEL_FILENAME_RE = compile(r'^.*(?P<grade>\d+)(?P<moduleletter>\w+)(?P<modulenumber>\d+)\.(?P<unitnumber>\d+)(?P<name>\w+).*$')
+UNIT_LEVEL_FILENAME_RE = compile(r'^.*(?P<grade>\d+)(?P<moduleletter>\w+)(?P<modulenumber>\d+)\.(?P<unitnumber>\d+)(?P<name>\D+)\.pdf$')
 def get_name_and_dict_from_unit_file_path(file_path):
     m = UNIT_LEVEL_FILENAME_RE.match(file_path)
     if not m:
-        raise Exception('UNIT_LEVEL_FILENAME_RE could not match')
+        return None
 
     grade, module_letter, module_number, unit_number, name = m.groups()
     title = f'Grade {grade} '
     if module_letter == 'm':
-        title += f"module {module_number} Unit {unit_number} {name}"
+        title += f"module {module_number} Unit {unit_number}"
+    if name == 'unit':
+        title += " Overview"
+    else:
+        title += name
+
     title = title.title()
     return name.lower(), dict(
         kind=content_kinds.DOCUMENT,
@@ -357,6 +362,7 @@ def download_ela_strand_or_module(topic, strand_or_module):
 
     # Gather the module's children from zip file
     resources = get_downloadable_resources_section(strand_or_module_page)
+    files = []
     if resources:
         module_zip = resources.find('a', attrs={'href': ELA_MODULE_ZIP_FILE_RE})
         if module_zip:
@@ -401,7 +407,7 @@ def download_ela_domain_or_unit(strand_or_module, domain_or_unit, files):
         node_children = domain_or_unit_node['children']
         unit_files = list(filter(lambda filename: title in filename, files))
         children = sorted(
-            map(lambda file_path: get_name_and_dict_from_unit_file_path(file_path), unit_files),
+            filter(lambda t: t is not None,  map(lambda file_path: get_name_and_dict_from_unit_file_path(file_path), unit_files)),
             key=lambda t:t[0]
         )
         children_dict = dict(children)
