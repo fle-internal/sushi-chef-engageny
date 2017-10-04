@@ -424,7 +424,7 @@ def download_ela_strand_or_module(topic, strand_or_module):
                         continue
                     node_children.append(child)
         else:
-            node_children.append(get_pdfs_from_downloadable_resources(resources))
+            node_children.append(*get_pdfs_from_downloadable_resources(resources))
 
     # Gather the children at the next level down
     for domain_or_unit in strand_or_module['domains_or_units']:
