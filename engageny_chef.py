@@ -364,10 +364,16 @@ def download_ela_grade(channel_tree, grade):
 
 PDF_RE=compile(r'^/file/.+/(?P<filename>.+\.pdf).*')
 def get_pdfs_from_downloadable_resources(resources):
+    if not resources:
+        return []
+
     pdfs = resources.find_all('a', attrs={'href': PDF_RE})
+
     if not pdfs:
-        raise StopIteration()
+        return []
+
     files = [None] * len(pdfs)
+
     for i, pdf in enumerate(pdfs):
         url = make_fully_qualified_url(pdf['href'])
         description = get_text(pdf)
@@ -444,10 +450,10 @@ def download_ela_domain_or_unit(strand_or_module, domain_or_unit, files):
         license=ENGAGENY_LICENSE.as_dict(),
         children=[],
     )
+    node_children = domain_or_unit_node['children']
 
     # Gather the unit's assets
     if files:
-        node_children = domain_or_unit_node['children']
         unit_files = list(filter(lambda filename: title in filename, files))
         children = sorted(
             filter(lambda t: t is not None,  map(lambda file_path: get_name_and_dict_from_unit_file_path(file_path), unit_files)),
@@ -461,6 +467,9 @@ def download_ela_domain_or_unit(strand_or_module, domain_or_unit, files):
             if name == 'unit':
                 continue
             node_children.append(child)
+    else:
+        resources = get_downloadable_resources_section(domain_or_unit_page)
+        node_children.extend(get_pdfs_from_downloadable_resources(resources))
 
     for lesson_or_document in domain_or_unit['lessons_or_documents']:
         download_math_lesson(domain_or_unit_node['children'], lesson_or_document)
