@@ -497,7 +497,7 @@ def download_math_grade(channel_tree, grade):
     channel_tree['children'].append(topic_node)
 
 def get_thumbnail_url(page):
-    thumbnail_url = page.find('img', class_='img-responsive')['src'].split('?')[0]
+    thumbnail_url = page.find('img', class_='img-responsive')['src'].split('?')[0] or page.find('meta', property='og:image')['content']
     return None if get_suffix(thumbnail_url) == '.gif' else thumbnail_url
 
 MODULE_ASSESSMENTS_RE = compile(r'^(?P<segmentsonly>(.)+-as{1,2}es{1,2}ments{0,1}.(zip|pdf))(.)*')
