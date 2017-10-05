@@ -65,7 +65,15 @@ LOGGER.setLevel(logging.DEBUG)
 
 # HELPER FUNCTIONS
 ################################################################################
-get_text = lambda x: "" if x is None else x.get_text().replace('\r', '').replace('\n', ' ').strip()
+def get_text(x):
+    return "" if x is None else x.get_text().replace('\r', '').replace('\n', ' ').strip()
+
+STRIP_BYTESIZE_RE = compile(r'^(.*)\s+\((\d+|\d+\.\d+)\s+\w+B\)')
+def strip_byte_size(s):
+    m = STRIP_BYTESIZE_RE.match(s)
+    if not m:
+        raise Exception('STRIP_BYTESIZE_RE did not match')
+    return m.group(1)
 
 def get_suffix(path):
     return PurePosixPath(path).suffix
@@ -130,7 +138,7 @@ def get_name_and_dict_from_unit_file_path(file_path):
     )
 
 
-ITEM_FROM_BUNDLE_RE = re.compile(r'^.+/(?P<area>.+(-i+){0,1})-(?P<grade>.+)-(?P<module>.+)-(?P<assessment_cutoff>.+-){0,1}(?P<level>.+)-(?P<type>.+)\..+$')
+ITEM_FROM_BUNDLE_RE = compile(r'^.+/(?P<area>.+(-i+){0,1})-(?P<grade>.+)-(?P<module>.+)-(?P<assessment_cutoff>.+-){0,1}(?P<level>.+)-(?P<type>.+)\..+$')
 def get_item_from_bundle_title(path):
     m = ITEM_FROM_BUNDLE_RE.match(path)
     if m:
@@ -174,7 +182,7 @@ def strip_token(url):
 
 def make_fully_qualified_url(url):
     if url.startswith("//"):
-        print('unexpecded // url', url)
+        print('unexpected // url', url)
         return strip_token("https:" + url)
     elif url.startswith("/"):
         return strip_token("https://www.engageny.org" + url)
@@ -242,16 +250,18 @@ def visit_module(grade, module_li):
         visit_topic(grade_module['topics'], topic_li)
     grade['modules'].append(grade_module)
 
+RESOURCE_RE = compile(r'^/resource')
+DOMAIN_OR_UNIT_RE = compile(r'\w*\s*(domain|unit)\s*\w*')
 def visit_ela_strand_or_module(grade, strand_or_module_li):
     details_div = strand_or_module_li.find('div', class_='details')
-    details = details_div.find('a',  attrs={'href': compile(r'^/resource')})
+    details = details_div.find('a',  attrs={'href': RESOURCE_RE})
     grade_strand_or_module = {
         'kind': 'EngageNYStrandOrModule',
         'title': get_text(details),
         'url': make_fully_qualified_url(details['href']),
         'domains_or_units': []
     }
-    for domain_or_unit in strand_or_module_li.find('div', class_='tree').find_all('li', attrs={'class': compile(r'\w*\s*(domain|unit)\s*\w*')}):
+    for domain_or_unit in strand_or_module_li.find('div', class_='tree').find_all('li', attrs={'class': DOMAIN_OR_UNIT_RE}):
         visit_ela_domain_or_unit(grade_strand_or_module, domain_or_unit)
     grade['strands_or_modules'].append(grade_strand_or_module)
 
@@ -269,16 +279,17 @@ def visit_topic(topics, topic_li):
         visit_lesson(topic, lesson_li)
     topics.append(topic)
 
+DOCUMENT_OR_LESSON_RE = compile(r'\w*\s*(document|lesson)\w*\s*')
 def visit_ela_domain_or_unit(grade_strand_or_module, domain_or_unit_li):
     details_div = domain_or_unit_li.find('div', class_='details')
-    details = details_div.find('a', attrs={'href': compile(r'^/resource') })
+    details = details_div.find('a', attrs={'href': RESOURCE_RE })
     domain_or_unit = {
         'kind': 'EngageNYDomainOrUnit',
         'title': get_text(details),
         'url': make_fully_qualified_url(details['href']),
         'lessons_or_documents': []
     }
-    for lesson_or_document in domain_or_unit_li.find('div', class_='tree').find_all('li', attrs={'class': compile(r'\w*\s*(document|lesson)\w*\s*') }):
+    for lesson_or_document in domain_or_unit_li.find('div', class_='tree').find_all('li', attrs={'class': DOCUMENT_OR_LESSON_RE }):
         visit_ela_lesson_or_document(domain_or_unit, lesson_or_document)
     grade_strand_or_module['domains_or_units'].append(domain_or_unit)
 
@@ -295,7 +306,7 @@ def visit_lesson(topic, lesson_li):
 
 def visit_ela_lesson_or_document(domain_or_unit, lesson_or_document_li):
     details_div = lesson_or_document_li.find('div', class_='details')
-    details = details_div.find('a', attrs={'href': compile(r'^/resource')})
+    details = details_div.find('a', attrs={'href': RESOURCE_RE })
     lesson_or_document = {
         'kind': 'EngageNYLessonOrDocument',
         'title': get_text(details),
@@ -351,6 +362,38 @@ def download_ela_grade(channel_tree, grade):
         download_ela_strand_or_module(topic_node, strand_or_module)
     channel_tree['children'].append(topic_node)
 
+PDF_RE=compile(r'^/file/.+/(?P<filename>.+\.pdf).*')
+def get_pdfs_from_downloadable_resources(resources):
+    if not resources:
+        return []
+
+    pdfs = resources.find_all('a', attrs={'href': PDF_RE})
+
+    if not pdfs:
+        return []
+
+    files = [None] * len(pdfs)
+
+    for i, pdf in enumerate(pdfs):
+        url = make_fully_qualified_url(pdf['href'])
+        description = get_text(pdf)
+        title = strip_byte_size(description)
+
+        files[i] = dict(
+            kind=content_kinds.DOCUMENT,
+            source_id=url,
+            title=title,
+            description=description,
+            license=ENGAGENY_LICENSE.as_dict(),
+            files=[
+                dict(
+                    file_type=content_kinds.DOCUMENT,
+                    path=url,
+                )
+            ]
+        )
+    return files
+
 ELA_MODULE_ZIP_FILE_RE = compile(r'^(/file/\d+/download/.*-\w+-pdf.zip).*$') 
 def download_ela_strand_or_module(topic, strand_or_module):
     url = strand_or_module['url']
@@ -363,6 +406,7 @@ def download_ela_strand_or_module(topic, strand_or_module):
         thumbnail=get_thumbnail_url(strand_or_module_page),
         children=[],
     )
+    node_children = strand_or_module_node['children']
 
     # Gather the module's children from zip file
     resources = get_downloadable_resources_section(strand_or_module_page)
@@ -372,7 +416,6 @@ def download_ela_strand_or_module(topic, strand_or_module):
         if module_zip:
             success, files = download_zip_file(make_fully_qualified_url(module_zip['href']))
             if success:
-                node_children = strand_or_module_node['children']
                 module_files = list(filter(lambda filename: MODULE_LEVEL_FILENAME_RE.match(filename) is not None, files))
                 children = sorted(
                     map(lambda file_path: get_name_and_dict_from_file_path(file_path), module_files),
@@ -387,8 +430,7 @@ def download_ela_strand_or_module(topic, strand_or_module):
                         continue
                     node_children.append(child)
         else:
-            # TODO: Find the pdfs and add them as documents
-            pass
+            node_children.extend(get_pdfs_from_downloadable_resources(resources))
 
     # Gather the children at the next level down
     for domain_or_unit in strand_or_module['domains_or_units']:
@@ -408,10 +450,10 @@ def download_ela_domain_or_unit(strand_or_module, domain_or_unit, files):
         license=ENGAGENY_LICENSE.as_dict(),
         children=[],
     )
+    node_children = domain_or_unit_node['children']
 
     # Gather the unit's assets
     if files:
-        node_children = domain_or_unit_node['children']
         unit_files = list(filter(lambda filename: title in filename, files))
         children = sorted(
             filter(lambda t: t is not None,  map(lambda file_path: get_name_and_dict_from_unit_file_path(file_path), unit_files)),
@@ -425,6 +467,9 @@ def download_ela_domain_or_unit(strand_or_module, domain_or_unit, files):
             if name == 'unit':
                 continue
             node_children.append(child)
+    else:
+        resources = get_downloadable_resources_section(domain_or_unit_page)
+        node_children.extend(get_pdfs_from_downloadable_resources(resources))
 
     for lesson_or_document in domain_or_unit['lessons_or_documents']:
         download_math_lesson(domain_or_unit_node['children'], lesson_or_document)
@@ -452,7 +497,7 @@ def download_math_grade(channel_tree, grade):
     channel_tree['children'].append(topic_node)
 
 def get_thumbnail_url(page):
-    thumbnail_url = page.find('img', class_='img-responsive')['src'].split('?')[0]
+    thumbnail_url = page.find('img', class_='img-responsive')['src'].split('?')[0] or page.find('meta', property='og:image')['content']
     return None if get_suffix(thumbnail_url) == '.gif' else thumbnail_url
 
 MODULE_ASSESSMENTS_RE = compile(r'^(?P<segmentsonly>(.)+-as{1,2}es{1,2}ments{0,1}.(zip|pdf))(.)*')
@@ -474,7 +519,7 @@ def download_math_module(topic_node, mod):
     fetch_assessment_bundle = False
 
     if module_overview_document_anchor is not None:
-        module_overview_file = MODULE_OVERVIEW_DOCUMENT_RE.match(module_overview_document_anchor['href']).group('segmentsonly')
+        module_overview_file = module_overview_document_anchor['href']
         module_overview_full_path = make_fully_qualified_url(module_overview_file)
         thumbnail_url = get_thumbnail_url(module_page)
         overview_node = dict(
@@ -491,7 +536,7 @@ def download_math_module(topic_node, mod):
                 ),
             ]
         )
-        if get_suffix(module_overview_file) == ".pdf":
+        if get_suffix(module_overview_full_path) == ".pdf":
             initial_children.append(overview_node)
         else:
             fetch_overview_bundle = True
@@ -501,14 +546,14 @@ def download_math_module(topic_node, mod):
     module_assessment_anchors = get_module_assessments(module_page)
     if module_assessment_anchors:
         for module_assessment_anchor in module_assessment_anchors:
-            module_assessment_file = MODULE_ASSESSMENTS_RE.match(module_assessment_anchor['href']).group('segmentsonly')
+            module_assessment_file = module_assessment_anchor['href']
             module_assessment_full_path = make_fully_qualified_url(module_assessment_file)
-            file_extension = get_suffix(module_assessment_file)
+            file_extension = get_suffix(module_assessment_full_path)
             if file_extension == ".pdf":
                 assessment_node = dict(
                     kind=content_kinds.DOCUMENT,
                     source_id=module_assessment_full_path,
-                    title=get_text(module_assessment_anchor),
+                    title=strip_byte_size(get_text(module_assessment_anchor)),
                     description=module_assessment_anchor['title'],
                     license=ENGAGENY_LICENSE.as_dict(),
                     files=[
@@ -566,22 +611,23 @@ def download_math_topic(module_node, topic):
     initial_children = []
     url = topic['url']
     topic_page = get_parsed_html_from_url(url)
-    description =get_description(topic_page)
+    description = get_description(topic_page)
 
     topic_overview_anchor = get_module_overview_document(topic_page)
     if topic_overview_anchor is not None:
-        overview_document_file = MODULE_OVERVIEW_DOCUMENT_RE.match(topic_overview_anchor['href']).group('segmentsonly')
+        overview_document_file = topic_overview_anchor['href']
+        document_url = make_fully_qualified_url(overview_document_file)
         overview_node = dict(
             kind=content_kinds.DOCUMENT,
-            source_id='',
+            source_id=document_url,
             title=topic['title'] + ' Overview',
-            description='description',
+            description=description,
             license=ENGAGENY_LICENSE.as_dict(),
             thumbnail=get_thumbnail_url(topic_page),
             files=[
                 dict(
                     file_type=content_kinds.DOCUMENT,
-                    path=make_fully_qualified_url(overview_document_file)
+                    path=document_url,
                 )
             ]
         )
@@ -632,10 +678,10 @@ def download_math_lesson(parent, lesson):
 
     for row in resources_rows:
         doc_link = row.find_all('td')[1].find('a')
-        title = doc_link['title'].replace('Download ','')
+        description = get_text(doc_link)
+        title = strip_byte_size(description)
         sanitized_doc_link = doc_link['href'].split('?')[0]
         doc_path = make_fully_qualified_url(sanitized_doc_link)
-        description = get_text(doc_link)
         if 'pdf' in doc_path:
             document_node = dict(
                 kind=content_kinds.DOCUMENT,
