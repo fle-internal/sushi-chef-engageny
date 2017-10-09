@@ -78,11 +78,12 @@ def strip_byte_size(s):
 def get_suffix(path):
     return PurePosixPath(path).suffix
 
+MODULE_LEVEL_PDF_INDIVIDUAL_FILES_RE= compile(r'.+/.+/PDF\s+Individual\s+Files/ela-\w(\d+)-(\w)(\d+)-(\w+-\w+).pdf')
 MODULE_LEVEL_FILENAME_RE = compile(r'^.+/.+/.+/(?:Module\sLevel\sDocuments/){0,1}(?P<grade>\d+)(?P<moduleletter>\w)(?P<modulenumber>\w+)\.(?P<name>\D+)\.pdf$')
 def get_name_and_dict_from_file_path(file_path):
-    m = MODULE_LEVEL_FILENAME_RE.match(file_path)
+    m = MODULE_LEVEL_FILENAME_RE.match(file_path) or MODULE_LEVEL_PDF_INDIVIDUAL_FILES_RE.match(file_path)
     if not m:
-        raise Exception('MODULE_LEVEL_FILENAME_RE could not match')
+        raise Exception('Neither MODULE_LEVEL_FILENAME_RE or MODULE_LEVEL_PDF_INDIVIDUAL_FILES_RE could not match')
 
     grade, module_letter, module_number, name = m.groups()
     title = f'Grade {grade} '
@@ -91,7 +92,7 @@ def get_name_and_dict_from_file_path(file_path):
     if name == 'module':
         title += " overview"
     else:
-        title += " " + name
+        title += " " + name.replace('-', ' ')
     title = title.title()
     return name.lower(), dict(
         kind=content_kinds.DOCUMENT,
@@ -416,7 +417,7 @@ def download_ela_strand_or_module(topic, strand_or_module):
         if module_zip:
             success, files = download_zip_file(make_fully_qualified_url(module_zip['href']))
             if success:
-                module_files = list(filter(lambda filename: MODULE_LEVEL_FILENAME_RE.match(filename) is not None, files))
+                module_files = list(filter(lambda filename: MODULE_LEVEL_FILENAME_RE.match(filename) is not None or MODULE_LEVEL_PDF_INDIVIDUAL_FILES_RE.match(filename) is not None, files))
                 children = sorted(
                     map(lambda file_path: get_name_and_dict_from_file_path(file_path), module_files),
                     key=lambda t: t[0]
