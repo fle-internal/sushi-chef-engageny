@@ -80,20 +80,44 @@ def get_suffix(path):
 
 MODULE_LEVEL_PDF_INDIVIDUAL_FILES_RE= compile(r'.+/.+/PDF\s+Individual\s+Files/ela-\w(\d+)-(\w)(\d+)-(\w+-\w+).pdf')
 MODULE_LEVEL_FILENAME_RE = compile(r'^.+/.+/.+/(?:Module\sLevel\sDocuments/){0,1}(?P<grade>\d+)(?P<moduleletter>\w)(?P<modulenumber>\w+)\.(?P<name>\D+)\.pdf$')
+MODULE_EXTENSION_FILENAME_RE = compile(r'^[^/]+/[^/]+/[^/]+/(?:(?P<subdir>[^/]+)/){0,1}ela-grade-(?P<grade>\d+)[-\.]ext[-\.](?P<name>.+).pdf$')
+LESSON_RE = compile(r'^(?P<lesson>[^\d]+)(?P<number>\d+)$')
 def get_name_and_dict_from_file_path(file_path):
-    m = MODULE_LEVEL_FILENAME_RE.match(file_path) or MODULE_LEVEL_PDF_INDIVIDUAL_FILES_RE.match(file_path)
-    if not m:
-        raise Exception('Neither MODULE_LEVEL_FILENAME_RE or MODULE_LEVEL_PDF_INDIVIDUAL_FILES_RE could not match')
+    def get_title_and_name(m):
+        grade, module_letter, module_number, name = m.groups()
+        title = ['grade', grade]
+        if module_letter == 'm':
+            title.extend(['module', module_number])
+        if name == 'module':
+            title.append('overview')
+        else:
+            title.extend(name.replace('module', '').replace('-', ' ').split())
+        return ' '.join(map(str, title)).title(), name
 
-    grade, module_letter, module_number, name = m.groups()
-    title = f'Grade {grade} '
-    if module_letter == 'm':
-        title += f"module {module_number}"
-    if name == 'module':
-        title += " overview"
+    def get_module_extension_title_and_name(m):
+        subdir, grade, name = m.groups()
+        title = ['grade', grade, 'extension', 'module']
+        if subdir:
+            title.append(subdir)
+        lesson_m = LESSON_RE.match(name)
+        if lesson_m:
+            title.append(lesson_m.group('number'))
+        else:
+            title.extend(name.replace("module", "").replace("-", " ").split())
+
+        return ' '.join(map(str, title)).title(), name
+
+    m = MODULE_LEVEL_FILENAME_RE.match(file_path) or MODULE_LEVEL_PDF_INDIVIDUAL_FILES_RE.match(file_path)
+    title = ''
+    name = ''
+    if m:
+        title, name = get_title_and_name(m)
     else:
-        title += " " + name.replace('-', ' ')
-    title = title.title()
+        m = MODULE_EXTENSION_FILENAME_RE.match(file_path)
+        if not m:
+            raise Exception('Neither MODULE_LEVEL_FILENAME_RE or MODULE_LEVEL_PDF_INDIVIDUAL_FILES_RE or MODULE_EXTENSION_FILENAME_RE could match')
+        title, name = get_module_extension_title_and_name(m)
+
     return name.lower(), dict(
         kind=content_kinds.DOCUMENT,
         source_id=file_path,
@@ -417,17 +441,17 @@ def download_ela_strand_or_module(topic, strand_or_module):
         if module_zip:
             success, files = download_zip_file(make_fully_qualified_url(module_zip['href']))
             if success:
-                module_files = list(filter(lambda filename: MODULE_LEVEL_FILENAME_RE.match(filename) is not None or MODULE_LEVEL_PDF_INDIVIDUAL_FILES_RE.match(filename) is not None, files))
+                module_files = list(filter(lambda filename: MODULE_LEVEL_FILENAME_RE.match(filename) is not None or MODULE_LEVEL_PDF_INDIVIDUAL_FILES_RE.match(filename) is not None or MODULE_EXTENSION_FILENAME_RE.match(filename) is not None, files))
                 children = sorted(
                     map(lambda file_path: get_name_and_dict_from_file_path(file_path), module_files),
                     key=lambda t: t[0]
                 )
                 children_dict = dict(children)
-                overview = children_dict.get('module') or children_dict.get('overview')
+                overview = children_dict.get('module') or children_dict.get('overview') or children_dict.get('module-overview')
                 if overview:
                     node_children.append(overview)
                 for name, child in children:
-                    if name == 'module' or name == 'overview':
+                    if name == 'module' or name == 'overview' or name == 'module-overview':
                         continue
                     node_children.append(child)
         else:
