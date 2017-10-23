@@ -817,8 +817,8 @@ class EngageNYChef(JsonTreeChef):
         the future this function can point to different files depending on the
         kwarg `lang` (that's how it's done in several other mulitilingual chefs).
         """
-        base_path = os.path.join(TREES_DATA_DIR, SCRAPING_STAGE_OUTPUT) 
-        lang = kwargs.get('lang', 'en')
+        base_path = os.path.join(TREES_DATA_DIR, SCRAPING_STAGE_OUTPUT)
+        lang = kwargs.get('--lang', kwargs.get('-lang', kwargs.get('lang', 'en')))
         json_tree_path = f'{base_path}_{lang}.json'
         LOGGER.info('json_tree_path', json_tree_path)
         return json_tree_path
