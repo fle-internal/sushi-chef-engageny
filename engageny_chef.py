@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+#region Imports
+import translation
+
 from collections import defaultdict
 import json
 import logging
@@ -26,15 +29,14 @@ from ricecooker.utils.jsontrees import write_tree_to_json_tree
 from ricecooker.utils.zip import create_predictable_zip
 
 from pathlib import PurePosixPath
+#endregion Imports
 
-# ENGAGE NY settings
-################################################################################
+#region ENGAGE NY settings
 ENGAGENY_CC_START_URL = 'https://www.engageny.org/common-core-curriculum'
 ENGAGENY_LICENSE = get_license(licenses.CC_BY_NC_SA, copyright_holder='Engage NY')
+#endregion ENGAGE NY settings
 
-
-# Set up webcaches
-################################################################################
+#region Caching
 sess = requests.Session()
 cache = FileCache('.webcache')
 basic_adapter = CacheControlAdapter(cache=cache)
@@ -43,28 +45,28 @@ sess.mount('http://', basic_adapter)
 sess.mount('https://', basic_adapter)
 sess.mount('http://www.engageny.org', forever_adapter)
 sess.mount('https://www.engageny.org', forever_adapter)
+#endregion Caching
 
-# Chef settings
-################################################################################
+#region Chef settings
 DATA_DIR = 'chefdata'
 TREES_DATA_DIR = os.path.join(DATA_DIR, 'trees')
 PDFS_DATA_DIR = os.path.join(DATA_DIR, 'pdfs')
 CRAWLING_STAGE_OUTPUT = 'web_resource_tree.json'
-SCRAPING_STAGE_OUTPUT = 'ricecooker_json_tree.json'
+SCRAPING_STAGE_OUTPUT = 'ricecooker_json_tree'
+#endregion Chef settings
 
-
-# LOGGING SETTINGS
-################################################################################
+#region Logging settings
 logging.getLogger("cachecontrol.controller").setLevel(logging.WARNING)
 logging.getLogger("requests.packages").setLevel(logging.WARNING)
 from ricecooker.config import LOGGER
 LOGGER.setLevel(logging.DEBUG)
+#endregion Logging settings
 
+#region Translation
+translation_client = None
+#endregion Translation
 
-
-
-# HELPER FUNCTIONS
-################################################################################
+#region Helper functions
 def get_text(x):
     return "" if x is None else x.get_text().replace('\r', '').replace('\n', ' ').strip()
 
@@ -212,10 +214,9 @@ def make_fully_qualified_url(url):
     elif url.startswith("/"):
         return strip_token("https://www.engageny.org" + url)
     return strip_token(url)
+#endreion Helper functions
 
-# CRAWLING
-################################################################################
-
+#region Crawling
 CONTENT_OR_RESOURCE_URL_RE = compile(r'/(content|resource)/*')
 def crawl(root_url):
     doc = get_parsed_html_from_url(root_url)
@@ -364,11 +365,9 @@ def crawling_part():
         LOGGER.info('Crawling results stored in ' + json_file_name)
 
     return web_resource_tree
+#endregion Crawling
 
-
-# SCRAPING
-################################################################################
-
+#region Scraping
 def download_ela_grades(channel_tree, grades):
     for grade in grades:
         download_ela_grade(channel_tree, grade)
@@ -768,16 +767,13 @@ def scraping_part(json_tree_path):
 
     # Build a Ricecooker tree from scraping process
     ricecooker_json_tree = build_scraping_json_tree(web_resource_tree)
-    LOGGER.info('Finished building ricecooker_json_tree')
+    LOGGER.info(f'Finished building {json_tree_path}')
 
-    # Write out ricecooker_json_tree.json
-    write_tree_to_json_tree(os.path.join(TREES_DATA_DIR, SCRAPING_STAGE_OUTPUT) , ricecooker_json_tree)
+    # Write out ricecooker_json_tree_{lang_code}.json
+    write_tree_to_json_tree(json_tree_path, ricecooker_json_tree)
+#region Scraping
 
-
-
-# CHEF
-################################################################################
-
+#region Chef
 class EngageNYChef(JsonTreeChef):
     """
     This class takes care of downloading resources from engageny.org and uploading
@@ -821,15 +817,15 @@ class EngageNYChef(JsonTreeChef):
         the future this function can point to different files depending on the
         kwarg `lang` (that's how it's done in several other mulitilingual chefs).
         """
-        json_tree_path = os.path.join(TREES_DATA_DIR, SCRAPING_STAGE_OUTPUT)
+        base_path = os.path.join(TREES_DATA_DIR, SCRAPING_STAGE_OUTPUT) 
+        lang = kwargs.get('lang', 'en')
+        json_tree_path = f'{base_path}_{lang}.json'
+        LOGGER.info('json_tree_path', json_tree_path)
         return json_tree_path
+#endregion Chef
 
-
-
-
-# CLI
-################################################################################
-
+#region CLI
 if __name__ == '__main__':
     chef = EngageNYChef()
     chef.main()
+#endregion CLI
