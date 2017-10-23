@@ -624,9 +624,24 @@ def download_math_module(topic_node, mod):
         title=mod['title'],
         description=description,
         children=initial_children,
+        extra_fields=dict(
+            translations=get_translations(module_page)
+        ),
     )
     download_math_topics(module_node, mod['topics'])
     topic_node['children'].append(module_node)
+
+SUPPORTED_TRANSLATIONS_RE = compile(r'(Spanish|Simplified-Chinese|Traditional-Chinese|Arabic|Bengali|Haitian-Creole)-pdf.zip', re.I)
+def get_translations(module_page):
+    downloadable_resources = get_downloadable_resources_section(module_page)
+    return [
+        (
+            SUPPORTED_TRANSLATIONS_RE.search(translation['href']).group(1).replace('-', ' '),
+            make_fully_qualified_url(translation['href'])
+        )
+        for translation in
+        downloadable_resources.find_all('a', attrs={'href': SUPPORTED_TRANSLATIONS_RE})
+    ]
 
 def download_math_topics(module_node, topics):
     for topic in topics:
