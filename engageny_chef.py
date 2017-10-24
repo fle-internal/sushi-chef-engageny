@@ -63,7 +63,11 @@ LOGGER.setLevel(logging.DEBUG)
 #endregion Logging settings
 
 #region Translation
-translation_client = None
+
+def _(msg):
+    response = translation_client.translate(msg)
+    LOGGER.info(response)
+    return response['translatedText']
 #endregion Translation
 
 #region Helper functions
@@ -512,8 +516,8 @@ def download_math_grade(channel_tree, grade):
     topic_node = dict(
         kind=content_kinds.TOPIC,
         source_id=url,
-        title=grade['title'],
-        description=get_description(grade_page),
+        title=_(grade['title']),
+        description=_(get_description(grade_page)),
         children=[],
     )
     for mod in grade['modules']:
@@ -549,8 +553,8 @@ def download_math_module(topic_node, mod):
         overview_node = dict(
             kind=content_kinds.DOCUMENT,
             source_id=url,
-            title=mod['title'] + " Overview",
-            description=get_description(module_page),
+            title=_(mod['title'] + " Overview"),
+            description=_(get_description(module_page)),
             license=ENGAGENY_LICENSE.as_dict(),
             thumbnail=thumbnail_url,
             files=[
@@ -577,8 +581,8 @@ def download_math_module(topic_node, mod):
                 assessment_node = dict(
                     kind=content_kinds.DOCUMENT,
                     source_id=module_assessment_full_path,
-                    title=strip_byte_size(get_text(module_assessment_anchor)),
-                    description=module_assessment_anchor['title'],
+                    title=_(strip_byte_size(get_text(module_assessment_anchor))),
+                    description=_(module_assessment_anchor['title']),
                     license=ENGAGENY_LICENSE.as_dict(),
                     files=[
                         dict(
@@ -604,8 +608,8 @@ def download_math_module(topic_node, mod):
                 initial_children.append(dict(
                     kind=content_kinds.DOCUMENT,
                     source_id=file,
-                    title=title,
-                    description=title,
+                    title=_(title),
+                    description=_(title),
                     license=ENGAGENY_LICENSE.as_dict(),
                     files=[
                         dict(
@@ -620,8 +624,8 @@ def download_math_module(topic_node, mod):
     module_node = dict(
         kind=content_kinds.TOPIC,
         source_id=url,
-        title=mod['title'],
-        description=description,
+        title=_(mod['title']),
+        description=_(description),
         children=initial_children,
         extra_fields=dict(
             translations=get_translations(module_page)
@@ -741,13 +745,13 @@ def download_math_lesson(parent, lesson):
 
     parent.append(lesson_data)
 
-def build_scraping_json_tree(web_resource_tree):
+def build_scraping_json_tree(web_resource_tree, language_code):
     channel_tree = dict(
         source_domain='engageny.org',
-        source_id='engageny',
-        title=web_resource_tree['title'],
-        description='EngageNY Common Core Curriculum Content... ELA and CCSSM combined',
-        language=web_resource_tree['language'],
+        source_id='engageny:' + language_code,
+        title=_(web_resource_tree['title']),
+        description=_('EngageNY Common Core Curriculum Content... ELA and CCSSM combined'),
+        language=language_code,
         thumbnail='./content/engageny_logo.png',
         children=[],
     )
@@ -765,9 +769,10 @@ def scraping_part(json_tree_path, language_code):
         web_resource_tree = json.load(json_file)
         assert web_resource_tree['kind'] == 'EngageNYWebResourceTree'
 
+    global translation_client
     translation_client = translation.Client(target_language=language_code)
     # Build a Ricecooker tree from scraping process
-    ricecooker_json_tree = build_scraping_json_tree(web_resource_tree)
+    ricecooker_json_tree = build_scraping_json_tree(web_resource_tree, language_code)
     LOGGER.info(f'Finished building {json_tree_path}')
 
     # Write out ricecooker_json_tree_{lang_code}.json
@@ -800,7 +805,7 @@ class EngageNYChef(JsonTreeChef):
         kwargs.update(options)
         json_tree_path = self.get_json_tree_path(**kwargs)
         lang = self.get_lang(**kwargs)
-        if not lang in EngageNYChef.SUPPORTED_LANGUAGE:
+        if not lang in EngageNYChef.SUPPORTED_LANGUAGES:
             supported_languages = ', '.join(EngageNYChef.SUPPORTED_LANGUAGES)
             raise Exception(f'`{lang}` is not a supported language, try: {supported_languages}')
         scraping_part(json_tree_path, lang)
@@ -828,7 +833,7 @@ class EngageNYChef(JsonTreeChef):
         LOGGER.info('json_tree_path', json_tree_path)
         return json_tree_path
 
-    def get_lang(**kwargs):
+    def get_lang(self, **kwargs):
         return kwargs.get('--lang', kwargs.get('-lang', kwargs.get('lang', 'en'))).lower()
 
 #endregion Chef
