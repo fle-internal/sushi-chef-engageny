@@ -755,7 +755,7 @@ def build_scraping_json_tree(web_resource_tree):
     download_math_grades(channel_tree, web_resource_tree['children']['math']['grades'])
     return channel_tree
 
-def scraping_part(json_tree_path):
+def scraping_part(json_tree_path, language_code):
     """
     Download all categories, subpages, modules, and resources from engageny and
     store them as a ricecooker json tree in the file `json_tree_path`.
@@ -765,6 +765,7 @@ def scraping_part(json_tree_path):
         web_resource_tree = json.load(json_file)
         assert web_resource_tree['kind'] == 'EngageNYWebResourceTree'
 
+    translation_client = translation.Client(target_language=language_code)
     # Build a Ricecooker tree from scraping process
     ricecooker_json_tree = build_scraping_json_tree(web_resource_tree)
     LOGGER.info(f'Finished building {json_tree_path}')
@@ -779,6 +780,7 @@ class EngageNYChef(JsonTreeChef):
     This class takes care of downloading resources from engageny.org and uploading
     them to Kolibri Studio, the content curation server.
     """
+    SUPPORTED_LANGUAGES={'ar', 'bn', 'en', 'es', 'zh-cn', 'zh-tw' }
 
     def crawl(self, args, options):
         """
@@ -797,8 +799,11 @@ class EngageNYChef(JsonTreeChef):
         kwargs.update(args)
         kwargs.update(options)
         json_tree_path = self.get_json_tree_path(**kwargs)
-        scraping_part(json_tree_path)
-
+        lang = self.get_lang(**kwargs)
+        if not lang in EngageNYChef.SUPPORTED_LANGUAGE:
+            supported_languages = ', '.join(EngageNYChef.SUPPORTED_LANGUAGES)
+            raise Exception(f'`{lang}` is not a supported language, try: {supported_languages}')
+        scraping_part(json_tree_path, lang)
 
     def pre_run(self, args, options):
         """
@@ -818,10 +823,14 @@ class EngageNYChef(JsonTreeChef):
         kwarg `lang` (that's how it's done in several other mulitilingual chefs).
         """
         base_path = os.path.join(TREES_DATA_DIR, SCRAPING_STAGE_OUTPUT)
-        lang = kwargs.get('--lang', kwargs.get('-lang', kwargs.get('lang', 'en')))
+        lang = self.get_lang(**kwargs)
         json_tree_path = f'{base_path}_{lang}.json'
         LOGGER.info('json_tree_path', json_tree_path)
         return json_tree_path
+
+    def get_lang(**kwargs):
+        return kwargs.get('--lang', kwargs.get('-lang', kwargs.get('lang', 'en'))).lower()
+
 #endregion Chef
 
 #region CLI
