@@ -15,6 +15,7 @@ import requests
 from re import compile
 import zipfile
 import io
+import argparse
 
 from le_utils.constants import content_kinds, licenses
 from ricecooker.chefs import JsonTreeChef
@@ -65,8 +66,13 @@ class EngageNYChef(JsonTreeChef):
 
     SUPPORTED_LANGUAGES = {'ar', 'bn', 'en', 'es', 'zh-cn', 'zh-tw'}
 
-    def __init__(self, http_session, logger, args, options):
-        super(EngageNYChef, self).__init__(**args, **options)
+    def __init__(self, http_session, logger):
+        super(EngageNYChef, self).__init__()
+        self.arg_parser = argparse.ArgumentParser(
+            description="EngageNY sushi chef.",
+            add_help=True,
+            parents=[self.arg_parser]
+        )
         self._http_session = http_session
         self._logger = logger
         self.language = None
@@ -409,7 +415,7 @@ class EngageNYChef(JsonTreeChef):
 
     @staticmethod
     def _get_lang(**kwargs):
-        return kwargs.get('--lang', kwargs.get('-lang', kwargs.get('lang', 'en'))).lower()
+        return kwargs.get('lang', 'en').lower()
 
     # Translates a message
     def _(self, msg):
@@ -874,7 +880,7 @@ def __get_testing_chef():
 
 
 if __name__ == '__main__':
-    chef = EngageNYChef(create_http_session(EngageNYChef.HOSTNAME), create_logger(), {}, {})
+    chef = EngageNYChef(create_http_session(EngageNYChef.HOSTNAME), create_logger())
     chef.main()
 
 # endregion CLI
