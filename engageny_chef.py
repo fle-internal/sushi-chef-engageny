@@ -138,11 +138,12 @@ class EngageNYChef(JsonTreeChef):
             if not m:
                 raise Exception('Neither MODULE_LEVEL_FILENAME_RE or MODULE_LEVEL_PDF_INDIVIDUAL_FILES_RE or MODULE_EXTENSION_FILENAME_RE could match')
             title, name = get_module_extension_title_and_name(m)
+        translated_title = self._(title)
         return name.lower(), dict(
             kind=content_kinds.DOCUMENT,
             source_id=file_path,
-            title=title,
-            description=title,
+            title=translated_title,
+            description=translated_title,
             license=EngageNYChef.ENGAGENY_LICENSE,
             files=[
                 dict(
@@ -169,12 +170,12 @@ class EngageNYChef(JsonTreeChef):
         else:
             title += " " + name
 
-        title = title.title()
+        translated_title = self._(title.title())
         return name.lower(), dict(
             kind=content_kinds.DOCUMENT,
             source_id=file_path,
-            title=title,
-            description=title,
+            title=translated_title,
+            description=translated_title,
             license=EngageNYChef.ENGAGENY_LICENSE,
             files=[
                 dict(
@@ -399,27 +400,6 @@ class EngageNYChef(JsonTreeChef):
     # endregion Crawling
 
     # region Scraping
-    def get_json_tree_path(self, **kwargs):
-        """
-        Return path to the ricecooker json tree file.
-        Parent class `JsonTreeChef` implements get_channel and construct_channel
-        that read their data from the json file specified by this function.
-        Currently there is a single json file SCRAPING_STAGE_OUTPUT, but maybe in
-        the future this function can point to different files depending on the
-        kwarg `lang` (that's how it's done in several other mulitilingual chefs).
-        """
-        base_path = os.path.join(EngageNYChef.TREES_DATA_DIR, EngageNYChef.SCRAPING_STAGE_OUTPUT)
-        lang = EngageNYChef._get_lang(**kwargs)
-        json_tree_path = f'{base_path}_{lang}.json'
-        self._logger.info('json_tree_path', json_tree_path)
-        return json_tree_path
-
-    @staticmethod
-    def _get_lang(**kwargs):
-        lang = kwargs.get('lang')
-        return lang.lower() if lang else None
-
-    # Translates a message
     def _(self, msg):
         if len(msg) >= 5000:
             self._logger.warn("""Message is longer than Google Translation API limit,
@@ -441,6 +421,20 @@ class EngageNYChef(JsonTreeChef):
         json_tree_path = self.get_json_tree_path(**kwargs)
         self._scraping_part(json_tree_path)
 
+    def get_json_tree_path(self, **kwargs):
+        """
+        Return path to the ricecooker json tree file.
+        Parent class `JsonTreeChef` implements get_channel and construct_channel
+        that read their data from the json file specified by this function.
+        Currently there is a single json file SCRAPING_STAGE_OUTPUT, but maybe in
+        the future this function can point to different files depending on the
+        kwarg `lang` (that's how it's done in several other mulitilingual chefs).
+        """
+        base_path = os.path.join(EngageNYChef.TREES_DATA_DIR, EngageNYChef.SCRAPING_STAGE_OUTPUT)
+        json_tree_path = f'{base_path}_{self._lang}.json'
+        self._logger.info('json_tree_path', json_tree_path)
+        return json_tree_path
+
     def _scrape_ela_grades(self, channel_tree, grades):
         for grade in grades:
             self._scrape_ela_grade(channel_tree, grade)
@@ -451,8 +445,8 @@ class EngageNYChef(JsonTreeChef):
         topic_node = dict(
             kind=content_kinds.TOPIC,
             source_id=url,
-            title=grade['title'],
-            description=EngageNYChef._get_description(grade_page),
+            title=self._(grade['title']),
+            description=self._(EngageNYChef._get_description(grade_page)),
             children=[]
         )
         for strand_or_module in grade['strands_or_modules']:
@@ -476,8 +470,8 @@ class EngageNYChef(JsonTreeChef):
             files[i] = dict(
                 kind=content_kinds.DOCUMENT,
                 source_id=url,
-                title=title,
-                description=description,
+                title=self._(title),
+                description=self._(description),
                 license=EngageNYChef.ENGAGENY_LICENSE,
                 files=[
                     dict(
@@ -496,8 +490,8 @@ class EngageNYChef(JsonTreeChef):
         strand_or_module_node = dict(
             kind=content_kinds.TOPIC,
             source_id=url,
-            title=strand_or_module['title'],
-            description=EngageNYChef._get_description(strand_or_module_page),
+            title=self._(strand_or_module['title']),
+            description=self._(EngageNYChef._get_description(strand_or_module_page)),
             thumbnail=EngageNYChef._get_thumbnail_url(strand_or_module_page),
             children=[],
         )
@@ -538,8 +532,8 @@ class EngageNYChef(JsonTreeChef):
         domain_or_unit_node = dict(
             kind=content_kinds.TOPIC,
             source_id=url,
-            title=title,
-            description=EngageNYChef._get_description(domain_or_unit_page),
+            title=self._(title),
+            description=self._(EngageNYChef._get_description(domain_or_unit_page)),
             thumbnail=EngageNYChef._get_thumbnail_url(domain_or_unit_page),
             license=EngageNYChef.ENGAGENY_LICENSE,
             children=[],
@@ -844,8 +838,6 @@ class EngageNYChef(JsonTreeChef):
             web_resource_tree = json.load(json_file)
             assert web_resource_tree['kind'] == 'EngageNYWebResourceTree'
 
-        self.translation_client = translation.Client(target_language=self._lang)
-
         # Build a Ricecooker tree from scraping process
         ricecooker_json_tree = self._build_scraping_json_tree(web_resource_tree)
         self._logger.info(f'Finished building {json_tree_path}')
@@ -869,8 +861,15 @@ class EngageNYChef(JsonTreeChef):
             print(f'\n`{lang}` is not a supported language, try one of: {supported_languages}')
             exit(-1)
         self._lang = lang
+        self.translation_client = translation.Client(target_language=self._lang)
         self.crawl(args, options)
         self.scrape(args, options)
+
+    @staticmethod
+    def _get_lang(**kwargs):
+        lang = kwargs.get('lang')
+        return lang.lower() if lang else None
+
 # endregion Chef
 
 # region Integration testing
