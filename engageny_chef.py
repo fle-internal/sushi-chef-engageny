@@ -70,6 +70,8 @@ class EngageNYChef(JsonTreeChef):
         super(EngageNYChef, self).__init__(**args, **options)
         self._http_session = http_session
         self._logger = logger
+        self.language = None
+
 
     #region Helper functions
     def get_text(self,  x):
@@ -385,7 +387,6 @@ class EngageNYChef(JsonTreeChef):
     def get_lang(self, **kwargs):
         return kwargs.get('--lang', kwargs.get('-lang', kwargs.get('lang', 'en'))).lower()
 
-
     def _(self, msg):
         response = self.translation_client.translate(msg[:5000])
         self._logger.info(response)
@@ -406,7 +407,8 @@ class EngageNYChef(JsonTreeChef):
         if not lang in EngageNYChef.SUPPORTED_LANGUAGES:
             supported_languages = ', '.join(EngageNYChef.SUPPORTED_LANGUAGES)
             raise Exception(f'`{lang}` is not a supported language, try: {supported_languages}')
-        self.scraping_part(json_tree_path, lang)
+        self.language = lang
+        self.scraping_part(json_tree_path)
 
     def download_ela_grades(self, channel_tree, grades):
         for grade in grades:
@@ -530,7 +532,7 @@ class EngageNYChef(JsonTreeChef):
             node_children.extend(self.get_pdfs_from_downloadable_resources(resources))
 
         for lesson_or_document in domain_or_unit['lessons_or_documents']:
-            self.download_ela_lesson(domain_or_unit_node['children'], lesson_or_document)
+            self.download_math_lesson(domain_or_unit_node['children'], lesson_or_document, lambda t: t,  language='en')
         strand_or_module['children'].append(domain_or_unit_node)
 
     def download_math_grades(self, channel_tree, grades):
@@ -718,7 +720,7 @@ class EngageNYChef(JsonTreeChef):
 
     def download_math_lessons(self, parent, lessons):
         for lesson in lessons:
-            self.download_math_lesson(parent, lesson)
+            self.download_math_lesson(parent, lesson, self._)
 
     def get_downloadable_resources_section(self, page):
         return page.find('div', class_='pane-downloadable-resources')
@@ -726,17 +728,17 @@ class EngageNYChef(JsonTreeChef):
     def get_related_resources_section(self, page):
         return page.find('div', class_='pane-related-items')
 
-    def download_ela_lesson(self, parent, lesson):
+    def download_math_lesson(self, parent, lesson, translate, language=None):
         lesson_url = lesson['url']
         lesson_page = self.get_parsed_html_from_url(lesson_url)
-        title = lesson['title']
-        description = self.get_description(lesson_page)
+        title = translate(lesson['title'])
+        description = translate(self.get_description(lesson_page))
         lesson_data = dict(
             kind=content_kinds.TOPIC,
             source_id=lesson_url,
             title=title,
             description=description,
-            language='en',
+            language=language or self.language,
             thumbnail=self.get_thumbnail_url(lesson_page),
             children=[],
         )
@@ -750,8 +752,8 @@ class EngageNYChef(JsonTreeChef):
 
         for row in resources_rows:
             doc_link = row.find_all('td')[1].find('a')
-            description = self.get_text(doc_link)
-            title = self.strip_byte_size(description)
+            description = translate(self.get_text(doc_link))
+            title = translate(self.strip_byte_size(description))
             sanitized_doc_link = doc_link['href'].split('?')[0]
             doc_path = self.make_fully_qualified_url(sanitized_doc_link)
             if 'pdf' in doc_path:
@@ -766,69 +768,21 @@ class EngageNYChef(JsonTreeChef):
                     files=[dict(
                         file_type=content_kinds.DOCUMENT,
                         path=doc_path,
-                        language='en',
+                        language=language or self.language,
                     )],
-                    language='en',
+                    language=language or self.language,
                 )
                 lesson_data['children'].append(document_node)
 
         parent.append(lesson_data)
 
-    def download_math_lesson(self, parent, lesson):
-        lesson_url = lesson['url']
-        lesson_page = self.get_parsed_html_from_url(lesson_url)
-        title = lesson['title']
-        description = self.get_description(lesson_page)
-        lesson_data = dict(
-            kind=content_kinds.TOPIC,
-            source_id=lesson_url,
-            title=self._(title),
-            description=self._(description),
-            language='en',
-            thumbnail=self.get_thumbnail_url(lesson_page),
-            children=[],
-        )
-        resources_pane = self.get_downloadable_resources_section(lesson_page)
-
-        if resources_pane is None:
-            return
-
-        resources_table = resources_pane.find('table')
-        resources_rows = resources_table.find_all('tr')
-
-        for row in resources_rows:
-            doc_link = row.find_all('td')[1].find('a')
-            description = self.get_text(doc_link)
-            title = self.strip_byte_size(description)
-            sanitized_doc_link = doc_link['href'].split('?')[0]
-            doc_path = self.make_fully_qualified_url(sanitized_doc_link)
-            if 'pdf' in doc_path:
-                document_node = dict(
-                    kind=content_kinds.DOCUMENT,
-                    source_id=lesson_url + ":" + sanitized_doc_link,
-                    title=self._(title),
-                    author='Engage NY',
-                    description=self._(description),
-                    license=EngageNYChef.ENGAGENY_LICENSE,
-                    thumbnail=None,
-                    files=[dict(
-                        file_type=content_kinds.DOCUMENT,
-                        path=doc_path,
-                        language='en',
-                    )],
-                    language='en',
-                )
-                lesson_data['children'].append(document_node)
-
-        parent.append(lesson_data)
-
-    def build_scraping_json_tree(self, web_resource_tree, language_code):
+    def build_scraping_json_tree(self, web_resource_tree):
         channel_tree = dict(
             source_domain='engageny.org',
-            source_id='engageny:' + language_code,
+            source_id='engageny_' + self.language,
             title=self._(web_resource_tree['title']),
             description=self._('EngageNY Common Core Curriculum Content... ELA and CCSSM combined'),
-            language=language_code,
+            language=self.language,
             thumbnail='./content/engageny_logo.png',
             children=[],
         )
@@ -836,7 +790,7 @@ class EngageNYChef(JsonTreeChef):
         self.download_math_grades(channel_tree, web_resource_tree['children']['math']['grades'])
         return channel_tree
 
-    def scraping_part(self, json_tree_path, language_code):
+    def scraping_part(self, json_tree_path):
         """
         Download all categories, subpages, modules, and resources from engageny and
         store them as a ricecooker json tree in the file `json_tree_path`.
@@ -846,10 +800,10 @@ class EngageNYChef(JsonTreeChef):
             web_resource_tree = json.load(json_file)
             assert web_resource_tree['kind'] == 'EngageNYWebResourceTree'
 
-        self.translation_client = translation.Client(target_language=language_code)
+        self.translation_client = translation.Client(target_language=self.language)
 
         # Build a Ricecooker tree from scraping process
-        ricecooker_json_tree = self.build_scraping_json_tree(web_resource_tree, language_code)
+        ricecooker_json_tree = self.build_scraping_json_tree(web_resource_tree)
         self._logger.info(f'Finished building {json_tree_path}')
 
         # Write out ricecooker_json_tree_{lang_code}.json
