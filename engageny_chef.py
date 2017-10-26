@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+from sys import exit
 
 from bs4 import BeautifulSoup
 import requests
@@ -75,7 +76,7 @@ class EngageNYChef(JsonTreeChef):
         )
         self._http_session = http_session
         self._logger = logger
-        self.language = None
+        self._lang = None
 
     # region Helper functions
 
@@ -415,7 +416,8 @@ class EngageNYChef(JsonTreeChef):
 
     @staticmethod
     def _get_lang(**kwargs):
-        return kwargs.get('lang', 'en').lower()
+        lang = kwargs.get('lang')
+        return lang.lower() if lang else None
 
     # Translates a message
     def _(self, msg):
@@ -437,11 +439,6 @@ class EngageNYChef(JsonTreeChef):
         kwargs.update(args)
         kwargs.update(options)
         json_tree_path = self.get_json_tree_path(**kwargs)
-        lang = EngageNYChef._get_lang(**kwargs)
-        if lang not in EngageNYChef.SUPPORTED_LANGUAGES:
-            supported_languages = ', '.join(EngageNYChef.SUPPORTED_LANGUAGES)
-            raise Exception(f'`{lang}` is not a supported language, try: {supported_languages}')
-        self.language = lang
         self._scraping_part(json_tree_path)
 
     def _scrape_ela_grades(self, channel_tree, grades):
@@ -765,7 +762,7 @@ class EngageNYChef(JsonTreeChef):
 
     def _scrape_math_lessons(self, parent, lessons):
         for lesson in lessons:
-            self._scrape_math_lesson(parent, lesson, self._, self.language)
+            self._scrape_math_lesson(parent, lesson, self._, self._lang)
 
     @staticmethod
     def _get_downloadable_resources_section(page):
@@ -826,10 +823,10 @@ class EngageNYChef(JsonTreeChef):
     def _build_scraping_json_tree(self, web_resource_tree):
         channel_tree = dict(
             source_domain='engageny.org',
-            source_id='engageny_' + self.language,
+            source_id='engageny_' + self._lang,
             title=self._(web_resource_tree['title']),
             description=self._('EngageNY Common Core Curriculum Content... ELA and CCSSM combined'),
-            language=self.language,
+            language=self._lang,
             thumbnail='./content/engageny_logo.png',
             children=[],
         )
@@ -847,7 +844,7 @@ class EngageNYChef(JsonTreeChef):
             web_resource_tree = json.load(json_file)
             assert web_resource_tree['kind'] == 'EngageNYWebResourceTree'
 
-        self.translation_client = translation.Client(target_language=self.language)
+        self.translation_client = translation.Client(target_language=self._lang)
 
         # Build a Ricecooker tree from scraping process
         ricecooker_json_tree = self._build_scraping_json_tree(web_resource_tree)
@@ -862,6 +859,16 @@ class EngageNYChef(JsonTreeChef):
         """
         Run the preliminary parts.
         """
+        supported_languages = ', '.join(EngageNYChef.SUPPORTED_LANGUAGES)
+        lang = EngageNYChef._get_lang(**options)
+        if not lang:
+            print(f'\n`lang` is a required argument, choose from one of: {supported_languages}')
+            exit(-1)
+        if lang not in EngageNYChef.SUPPORTED_LANGUAGES:
+
+            print(f'\n`{lang}` is not a supported language, try one of: {supported_languages}')
+            exit(-1)
+        self._lang = lang
         self.crawl(args, options)
         self.scrape(args, options)
 # endregion Chef
@@ -872,7 +879,7 @@ class EngageNYChef(JsonTreeChef):
 def __get_testing_chef():
     http_session = create_http_session(EngageNYChef.HOSTNAME)
     logger = create_logger()
-    return EngageNYChef(http_session, logger, {}, {})
+    return EngageNYChef(http_session, logger)
 
 # endregion Integration testing
 
