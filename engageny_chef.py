@@ -492,7 +492,7 @@ class EngageNYChef(JsonTreeChef):
             source_id=url,
             title=strand_or_module['title'],
             description=EngageNYChef._get_description(strand_or_module_page),
-            thumbnail=self._get_thumbnail_url(strand_or_module_page),
+            thumbnail=EngageNYChef._get_thumbnail_url(strand_or_module_page),
             children=[],
         )
         node_children = strand_or_module_node['children']
@@ -586,7 +586,7 @@ class EngageNYChef(JsonTreeChef):
         channel_tree['children'].append(topic_node)
 
     @staticmethod
-    def _get_thumbnail_url(self, page):
+    def _get_thumbnail_url(page):
         thumbnail_url = page.find('img', class_='img-responsive')['src'].split('?')[0] or page.find('meta', property='og:image')['content']
         return None if EngageNYChef.get_suffix(thumbnail_url) == '.gif' else thumbnail_url
 
@@ -614,7 +614,7 @@ class EngageNYChef(JsonTreeChef):
         if module_overview_document_anchor is not None:
             module_overview_file = module_overview_document_anchor['href']
             module_overview_full_path = EngageNYChef.make_fully_qualified_url(module_overview_file)
-            thumbnail_url = self._get_thumbnail_url(module_page)
+            thumbnail_url = EngageNYChef._get_thumbnail_url(module_page)
             overview_node = dict(
                 kind=content_kinds.DOCUMENT,
                 source_id=url,
@@ -653,8 +653,8 @@ class EngageNYChef(JsonTreeChef):
                             dict(
                                 file_type=content_kinds.DOCUMENT,
                                 path=module_assessment_full_path
-                        )
-                    ])
+                            )
+                        ])
                     initial_children.append(assessment_node)
                 else:
                     fetch_assessment_bundle = True
@@ -733,7 +733,7 @@ class EngageNYChef(JsonTreeChef):
                 title=self._(topic['title'] + ' Overview'),
                 description=self._(description),
                 license=EngageNYChef.ENGAGENY_LICENSE,
-                thumbnail=self._get_thumbnail_url(topic_page),
+                thumbnail=EngageNYChef._get_thumbnail_url(topic_page),
                 files=[
                     dict(
                         file_type=content_kinds.DOCUMENT,
@@ -777,7 +777,7 @@ class EngageNYChef(JsonTreeChef):
             title=title,
             description=description,
             language=language or self.language,
-            thumbnail=self._get_thumbnail_url(lesson_page),
+            thumbnail=EngageNYChef._get_thumbnail_url(lesson_page),
             children=[],
         )
         resources_pane = EngageNYChef._get_downloadable_resources_section(lesson_page)
