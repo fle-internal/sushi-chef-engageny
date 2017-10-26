@@ -413,6 +413,9 @@ class EngageNYChef(JsonTreeChef):
 
     # Translates a message
     def _(self, msg):
+        if len(msg) >= 5000:
+            self._logger.warn("""Message is longer than Google Translation API limit,
+                                 we might consider chunking the translation""")
         response = self.translation_client.translate(msg[:5000])
         self._logger.info(response)
         if isinstance(response, list):
