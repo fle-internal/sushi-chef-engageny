@@ -1,19 +1,15 @@
 #!/usr/bin/env python
 
-#region Imports
+# region Imports
+
 import translation
 
-from collections import defaultdict
 import json
 import logging
 import os
 import re
-import tempfile
-import shutil
-from urllib.parse import urlparse, parse_qs
 
 from bs4 import BeautifulSoup
-import jinja2
 import requests
 
 from re import compile
@@ -23,12 +19,12 @@ import io
 from le_utils.constants import content_kinds, licenses
 from ricecooker.chefs import JsonTreeChef
 from ricecooker.classes.licenses import get_license
-from ricecooker.utils.caching import CacheForeverHeuristic, FileCache, CacheControlAdapter, InvalidatingCacheControlAdapter
+from ricecooker.utils.caching import CacheForeverHeuristic, FileCache, CacheControlAdapter
 from ricecooker.utils.jsontrees import write_tree_to_json_tree
-from ricecooker.utils.zip import create_predictable_zip
 
 from pathlib import PurePosixPath
-#endregion Imports
+# endregion Imports
+
 
 def create_http_session(hostname):
     sess = requests.Session()
@@ -41,6 +37,7 @@ def create_http_session(hostname):
     sess.mount('https://www.' + hostname, forever_adapter)
     return sess
 
+
 def create_logger():
     logging.getLogger("cachecontrol.controller").setLevel(logging.WARNING)
     logging.getLogger("requests.packages").setLevel(logging.WARNING)
@@ -48,7 +45,9 @@ def create_logger():
     LOGGER.setLevel(logging.DEBUG)
     return LOGGER
 
-#region Chef
+# region Chef
+
+
 class EngageNYChef(JsonTreeChef):
     """
     This class takes care of downloading resources from engageny.org and uploading
@@ -64,7 +63,7 @@ class EngageNYChef(JsonTreeChef):
     CRAWLING_STAGE_OUTPUT = 'web_resource_tree.json'
     SCRAPING_STAGE_OUTPUT = 'ricecooker_json_tree'
 
-    SUPPORTED_LANGUAGES={'ar', 'bn', 'en', 'es', 'zh-cn', 'zh-tw' }
+    SUPPORTED_LANGUAGES = {'ar', 'bn', 'en', 'es', 'zh-cn', 'zh-tw'}
 
     def __init__(self, http_session, logger, args, options):
         super(EngageNYChef, self).__init__(**args, **options)
@@ -72,12 +71,13 @@ class EngageNYChef(JsonTreeChef):
         self._logger = logger
         self.language = None
 
+    # region Helper functions
 
-    #region Helper functions
     def get_text(self,  x):
         return "" if x is None else x.get_text().replace('\r', '').replace('\n', ' ').strip()
 
     STRIP_BYTESIZE_RE = compile(r'^(.*)\s+\((\d+|\d+\.\d+)\s+\w+B\)')
+
     def strip_byte_size(self, s):
         m = EngageNYChef.STRIP_BYTESIZE_RE.match(s)
         if not m:
@@ -87,7 +87,7 @@ class EngageNYChef(JsonTreeChef):
     def get_suffix(self, path):
         return PurePosixPath(path).suffix
 
-    MODULE_LEVEL_PDF_INDIVIDUAL_FILES_RE= compile(r'.+/.+/PDF\s+Individual\s+Files/ela-\w(\d+)-(\w)(\d+)-(\w+-\w+).pdf')
+    MODULE_LEVEL_PDF_INDIVIDUAL_FILES_RE = compile(r'.+/.+/PDF\s+Individual\s+Files/ela-\w(\d+)-(\w)(\d+)-(\w+-\w+).pdf')
     MODULE_LEVEL_FILENAME_RE = compile(r'^.+/.+/.+/(?:Module\sLevel\sDocuments/){0,1}(?P<grade>\d+)(?P<moduleletter>\w)(?P<modulenumber>\w+)\.(?P<name>\D+)\.pdf$')
     MODULE_EXTENSION_FILENAME_RE = compile(r'^[^/]+/[^/]+/[^/]+/(?:(?P<subdir>[^/]+)/){0,1}ela-grade-(?P<grade>\d+)[-\.]ext[-\.](?P<name>.+).pdf$')
     LESSON_RE = compile(r'^(?P<lesson>[^\d]+)(?P<number>\d+)$')
@@ -141,6 +141,7 @@ class EngageNYChef(JsonTreeChef):
         )
 
     UNIT_LEVEL_FILENAME_RE = compile(r'^.*(?P<grade>\d+)(?P<moduleletter>\w+)(?P<modulenumber>\d+)\.(?P<unitnumber>\d+)(?P<name>\D+)\.pdf$')
+
     def get_name_and_dict_from_unit_file_path(self, file_path):
         m = EngageNYChef.UNIT_LEVEL_FILENAME_RE.match(file_path)
         if not m:
@@ -171,6 +172,7 @@ class EngageNYChef(JsonTreeChef):
         )
 
     ITEM_FROM_BUNDLE_RE = compile(r'^.+/(?P<area>.+(-i+){0,1})-(?P<grade>.+)-(?P<module>.+)-(?P<assessment_cutoff>.+-){0,1}(?P<level>.+)-(?P<type>.+)\..+$')
+
     def get_item_from_bundle_title(self, path):
         m = EngageNYChef.ITEM_FROM_BUNDLE_RE.match(path)
         if m:
@@ -187,15 +189,15 @@ class EngageNYChef(JsonTreeChef):
 
     def download_zip_file(self, url):
         if not url:
-            return (False, None)
+            return False, None
 
         if self.get_suffix(url) != '.zip':
-            return (False, None)
+            return False, None
 
         response = self._http_session.get(url)
         if response.status_code != 200:
             self._logger.error("STATUS: {}, URL: {}", response.status_code, url)
-            return (False, None)
+            return False, None
         elif not response.from_cache:
             self._logger.debug("NOT CACHED:", url)
 
@@ -207,7 +209,7 @@ class EngageNYChef(JsonTreeChef):
             archive_member_names[i] = path
             if not os.path.exists(path):
                 archive.extract(pdf, EngageNYChef.PDFS_DATA_DIR)
-        return (True, archive_member_names)
+        return True, archive_member_names
 
     def strip_token(self, url):
         return url.split('?')[0]
@@ -215,14 +217,14 @@ class EngageNYChef(JsonTreeChef):
     def make_fully_qualified_url(self, url):
         if url.startswith("//"):
             print('unexpected // url', url)
-            return strip_token("https:" + url)
+            return self.strip_token("https:" + url)
         elif url.startswith("/"):
             return self.strip_token("https://www.engageny.org" + url)
         return self.strip_token(url)
 
-    #endregion Helper functions
+    # endregion Helper functions
 
-    #region Crawling
+    # region Crawling
     def crawl(self, args, options):
         """
         PART 1: crawling
@@ -253,6 +255,7 @@ class EngageNYChef(JsonTreeChef):
         return web_resource_tree
 
     CONTENT_OR_RESOURCE_URL_RE = compile(r'/(content|resource)/*')
+
     def find_grades(self, toc, children_label='modules'):
         grades = []
         for grade in toc.find_all('a', attrs={'href': EngageNYChef.CONTENT_OR_RESOURCE_URL_RE }):
@@ -276,6 +279,7 @@ class EngageNYChef(JsonTreeChef):
         return (ela_grades, math_grades)
 
     STRAND_OR_MODULE_RE = compile('\w*\s*(strand|module)\s*\w*')
+
     def visit_ela_grade(self, grade):
         grade_page = self.get_parsed_html_from_url(grade['url'])
         grade_curriculum_toc = grade_page.find('div', class_='nysed-book-outline curriculum-map')
@@ -283,6 +287,7 @@ class EngageNYChef(JsonTreeChef):
             self.visit_ela_strand_or_module(grade, strand_or_module_li)
 
     MODULE_URL_RE = compile(r'^/resource/(.)+-module-(\d)+$')
+
     def visit_grade(self, grade):
         grade_page = self.get_parsed_html_from_url(grade['url'])
         grade_curriculum_toc = grade_page.find('div', class_='nysed-book-outline curriculum-map')
@@ -304,6 +309,7 @@ class EngageNYChef(JsonTreeChef):
 
     RESOURCE_RE = compile(r'^/resource')
     DOMAIN_OR_UNIT_RE = compile(r'\w*\s*(domain|unit)\s*\w*')
+
     def visit_ela_strand_or_module(self, grade, strand_or_module_li):
         details_div = strand_or_module_li.find('div', class_='details')
         details = details_div.find('a',  attrs={'href': EngageNYChef.RESOURCE_RE})
@@ -318,6 +324,7 @@ class EngageNYChef(JsonTreeChef):
         grade['strands_or_modules'].append(grade_strand_or_module)
 
     TOPIC_URL_RE = compile(r'^(.)+-topic(.)*')
+
     def visit_topic(self, topics, topic_li):
         details_div = topic_li.find('div', class_='details')
         details = details_div.find('a', attrs={'href': EngageNYChef.TOPIC_URL_RE })
@@ -332,6 +339,7 @@ class EngageNYChef(JsonTreeChef):
         topics.append(topic)
 
     DOCUMENT_OR_LESSON_RE = compile(r'\w*\s*(document|lesson)\w*\s*')
+
     def visit_ela_domain_or_unit(self, grade_strand_or_module, domain_or_unit_li):
         details_div = domain_or_unit_li.find('div', class_='details')
         details = details_div.find('a', attrs={'href': EngageNYChef.RESOURCE_RE })
@@ -346,6 +354,7 @@ class EngageNYChef(JsonTreeChef):
         grade_strand_or_module['domains_or_units'].append(domain_or_unit)
 
     LESSON_URL_RE = compile(r'^(.)+-lesson(.)*')
+
     def visit_lesson(self, topic, lesson_li):
         details_div = lesson_li.find('div', class_='details')
         details = details_div.find('a', attrs={ 'href': EngageNYChef.LESSON_URL_RE })
@@ -366,9 +375,9 @@ class EngageNYChef(JsonTreeChef):
         }
         domain_or_unit['lessons_or_documents'].append(lesson_or_document)
 
-    #endregion Crawling
+    # endregion Crawling
 
-    #region Scraping
+    # region Scraping
     def get_json_tree_path(self, **kwargs):
         """
         Return path to the ricecooker json tree file.
@@ -404,7 +413,7 @@ class EngageNYChef(JsonTreeChef):
         kwargs.update(options)
         json_tree_path = self.get_json_tree_path(**kwargs)
         lang = self.get_lang(**kwargs)
-        if not lang in EngageNYChef.SUPPORTED_LANGUAGES:
+        if lang not in EngageNYChef.SUPPORTED_LANGUAGES:
             supported_languages = ', '.join(EngageNYChef.SUPPORTED_LANGUAGES)
             raise Exception(f'`{lang}` is not a supported language, try: {supported_languages}')
         self.language = lang
@@ -428,7 +437,8 @@ class EngageNYChef(JsonTreeChef):
             self.download_ela_strand_or_module(topic_node, strand_or_module)
         channel_tree['children'].append(topic_node)
 
-    PDF_RE=compile(r'^/file/.+/(?P<filename>.+\.pdf).*')
+    PDF_RE = compile(r'^/file/.+/(?P<filename>.+\.pdf).*')
+
     def get_pdfs_from_downloadable_resources(self, resources):
         if not resources:
             return []
@@ -455,7 +465,8 @@ class EngageNYChef(JsonTreeChef):
             )
         return files
 
-    ELA_MODULE_ZIP_FILE_RE = compile(r'^(/file/\d+/download/.*-\w+-pdf.zip).*$') 
+    ELA_MODULE_ZIP_FILE_RE = compile(r'^(/file/\d+/download/.*-\w+-pdf.zip).*$')
+
     def download_ela_strand_or_module(self, topic, strand_or_module):
         url = strand_or_module['url']
         strand_or_module_page = self.get_parsed_html_from_url(url)
@@ -561,10 +572,12 @@ class EngageNYChef(JsonTreeChef):
         return None if self.get_suffix(thumbnail_url) == '.gif' else thumbnail_url
 
     MODULE_ASSESSMENTS_RE = compile(r'^(?P<segmentsonly>(.)+-as{1,2}es{1,2}ments{0,1}.(zip|pdf))(.)*')
+
     def get_module_assessments(self, page):
         return page.find_all('a', attrs={ 'href': EngageNYChef.MODULE_ASSESSMENTS_RE })
 
     MODULE_OVERVIEW_DOCUMENT_RE = compile(r'^(?P<segmentsonly>/file/(.)+-overview(.)*.(pdf|zip))(.)*$')
+
     def get_module_overview_document(self, page):
         return page.find('a', attrs={'href':  EngageNYChef.MODULE_OVERVIEW_DOCUMENT_RE })
 
@@ -666,6 +679,7 @@ class EngageNYChef(JsonTreeChef):
         topic_node['children'].append(module_node)
 
     SUPPORTED_TRANSLATIONS_RE = compile(r'(Spanish|Simplified-Chinese|Traditional-Chinese|Arabic|Bengali|Haitian-Creole)-pdf.zip', re.I)
+
     def get_translations(self, module_page):
         downloadable_resources = self.get_downloadable_resources_section(module_page)
         return [
@@ -809,7 +823,7 @@ class EngageNYChef(JsonTreeChef):
         # Write out ricecooker_json_tree_{lang_code}.json
         write_tree_to_json_tree(json_tree_path, ricecooker_json_tree)
 
-    #endregion Scraping
+    # endregion Scraping
 
     def pre_run(self, args, options):
         """
@@ -817,20 +831,23 @@ class EngageNYChef(JsonTreeChef):
         """
         self.crawl(args, options)
         self.scrape(args, options)
-#endregion Chef
+# endregion Chef
+
+# region Integration testing
+
 
 def __get_testing_chef():
     http_session = create_http_session(EngageNYChef.HOSTNAME)
     logger = create_logger()
     return EngageNYChef(http_session, logger, {}, {})
 
+# endregion Integration testing
 
-#region CLI
+# region CLI
+
 
 if __name__ == '__main__':
-    http_session = create_http_session(EngageNYChef.HOSTNAME)
-    logger = create_logger()
-    chef = EngageNYChef(http_session, logger, {}, {})
+    chef = EngageNYChef(create_http_session(EngageNYChef.HOSTNAME), create_logger(), {}, {})
     chef.main()
 
-#endregion CLI
+# endregion CLI
