@@ -234,7 +234,7 @@ class EngageNYChef(JsonTreeChef):
         dual_toc_div = doc.find('div', id='mini-panel-common_core_curriculum')
         ela_toc = dual_toc_div.find('div', class_='panel-col-first')
         math_toc = dual_toc_div.find('div', class_='panel-col-last')
-        ela_hierarchy, math_hierarchy = self.visit_grades(ela_toc, math_toc)
+        ela_hierarchy, math_hierarchy = self._crawl_grades(ela_toc, math_toc)
         web_resource_tree = dict(
             kind="EngageNYWebResourceTree",
             title="Engage NY Web Resource Tree (ELS and CCSSM)",
@@ -254,9 +254,18 @@ class EngageNYChef(JsonTreeChef):
             self._logger.info('Crawling results stored in ' + json_file_name)
         return web_resource_tree
 
+    def _crawl_grades(self, ela_toc, math_toc):
+        ela_grades = self._crawl_toc_grades(ela_toc, children_label='strands_or_modules')
+        math_grades = self._crawl_toc_grades(math_toc)
+        for grade in ela_grades:
+            self._crawl_ela_grade(grade)
+        for grade in math_grades:
+            self._crawl_math_grade(grade)
+        return ela_grades, math_grades
+
     CONTENT_OR_RESOURCE_URL_RE = compile(r'/(content|resource)/*')
 
-    def find_grades(self, toc, children_label='modules'):
+    def _crawl_toc_grades(self, toc, children_label='modules'):
         grades = []
         for grade in toc.find_all('a', attrs={'href': EngageNYChef.CONTENT_OR_RESOURCE_URL_RE }):
             grade_path = grade['href']
@@ -269,33 +278,24 @@ class EngageNYChef(JsonTreeChef):
             })
         return grades
 
-    def visit_grades(self, ela_toc, math_toc):
-        ela_grades = self.find_grades(ela_toc,  children_label='strands_or_modules')
-        math_grades = self.find_grades(math_toc)
-        for grade in ela_grades:
-            self.visit_ela_grade(grade)
-        for grade in math_grades:
-            self.visit_grade(grade)
-        return (ela_grades, math_grades)
-
     STRAND_OR_MODULE_RE = compile('\w*\s*(strand|module)\s*\w*')
 
-    def visit_ela_grade(self, grade):
+    def _crawl_ela_grade(self, grade):
         grade_page = self.get_parsed_html_from_url(grade['url'])
         grade_curriculum_toc = grade_page.find('div', class_='nysed-book-outline curriculum-map')
         for strand_or_module_li in grade_curriculum_toc.find_all('li', attrs={'class': EngageNYChef.STRAND_OR_MODULE_RE}):
-            self.visit_ela_strand_or_module(grade, strand_or_module_li)
+            self._crawl_ela_strand_or_module(grade, strand_or_module_li)
 
     MODULE_URL_RE = compile(r'^/resource/(.)+-module-(\d)+$')
 
-    def visit_grade(self, grade):
+    def _crawl_math_grade(self, grade):
         grade_page = self.get_parsed_html_from_url(grade['url'])
         grade_curriculum_toc = grade_page.find('div', class_='nysed-book-outline curriculum-map')
         for module_li in grade_curriculum_toc.find_all('li', class_='module'):
-            self.visit_module(grade, module_li)
+            self._crawl_math_module(grade, module_li)
 
-    def visit_module(self, grade, module_li):
-        details_div  = module_li.find('div', class_='details')
+    def _crawl_math_module(self, grade, module_li):
+        details_div = module_li.find('div', class_='details')
         details = details_div.find('a', attrs={'href': EngageNYChef.MODULE_URL_RE })
         grade_module = {
             'kind': 'EngageNYModule',
@@ -304,13 +304,13 @@ class EngageNYChef(JsonTreeChef):
             'topics': [],
         }
         for topic_li in module_li.find('div', class_='tree').find_all('li', class_='topic'):
-            self.visit_topic(grade_module['topics'], topic_li)
+            self._crawl_math_topic(grade_module['topics'], topic_li)
         grade['modules'].append(grade_module)
 
     RESOURCE_RE = compile(r'^/resource')
     DOMAIN_OR_UNIT_RE = compile(r'\w*\s*(domain|unit)\s*\w*')
 
-    def visit_ela_strand_or_module(self, grade, strand_or_module_li):
+    def _crawl_ela_strand_or_module(self, grade, strand_or_module_li):
         details_div = strand_or_module_li.find('div', class_='details')
         details = details_div.find('a',  attrs={'href': EngageNYChef.RESOURCE_RE})
         grade_strand_or_module = {
@@ -320,12 +320,12 @@ class EngageNYChef(JsonTreeChef):
             'domains_or_units': []
         }
         for domain_or_unit in strand_or_module_li.find('div', class_='tree').find_all('li', attrs={'class': EngageNYChef.DOMAIN_OR_UNIT_RE}):
-            self.visit_ela_domain_or_unit(grade_strand_or_module, domain_or_unit)
+            self._crawl_ela_domain_or_unit(grade_strand_or_module, domain_or_unit)
         grade['strands_or_modules'].append(grade_strand_or_module)
 
     TOPIC_URL_RE = compile(r'^(.)+-topic(.)*')
 
-    def visit_topic(self, topics, topic_li):
+    def _crawl_math_topic(self, topics, topic_li):
         details_div = topic_li.find('div', class_='details')
         details = details_div.find('a', attrs={'href': EngageNYChef.TOPIC_URL_RE })
         topic = {
@@ -335,12 +335,12 @@ class EngageNYChef(JsonTreeChef):
             'lessons': [],
         }
         for lesson_li in topic_li.find('div', class_='tree').find_all('li', class_='lesson'):
-            self.visit_lesson(topic, lesson_li)
+            self._crawl_math_lesson(topic, lesson_li)
         topics.append(topic)
 
     DOCUMENT_OR_LESSON_RE = compile(r'\w*\s*(document|lesson)\w*\s*')
 
-    def visit_ela_domain_or_unit(self, grade_strand_or_module, domain_or_unit_li):
+    def _crawl_ela_domain_or_unit(self, grade_strand_or_module, domain_or_unit_li):
         details_div = domain_or_unit_li.find('div', class_='details')
         details = details_div.find('a', attrs={'href': EngageNYChef.RESOURCE_RE })
         domain_or_unit = {
@@ -350,12 +350,12 @@ class EngageNYChef(JsonTreeChef):
             'lessons_or_documents': []
         }
         for lesson_or_document in domain_or_unit_li.find('div', class_='tree').find_all('li', attrs={'class': EngageNYChef.DOCUMENT_OR_LESSON_RE }):
-            self.visit_ela_lesson_or_document(domain_or_unit, lesson_or_document)
+            self._crawl_ela_lesson_or_document(domain_or_unit, lesson_or_document)
         grade_strand_or_module['domains_or_units'].append(domain_or_unit)
 
     LESSON_URL_RE = compile(r'^(.)+-lesson(.)*')
 
-    def visit_lesson(self, topic, lesson_li):
+    def _crawl_math_lesson(self, topic, lesson_li):
         details_div = lesson_li.find('div', class_='details')
         details = details_div.find('a', attrs={ 'href': EngageNYChef.LESSON_URL_RE })
         lesson = {
@@ -365,7 +365,7 @@ class EngageNYChef(JsonTreeChef):
         }
         topic['lessons'].append(lesson)
 
-    def visit_ela_lesson_or_document(self, domain_or_unit, lesson_or_document_li):
+    def _crawl_ela_lesson_or_document(self, domain_or_unit, lesson_or_document_li):
         details_div = lesson_or_document_li.find('div', class_='details')
         details = details_div.find('a', attrs={'href': EngageNYChef.RESOURCE_RE })
         lesson_or_document = {
@@ -388,14 +388,15 @@ class EngageNYChef(JsonTreeChef):
         kwarg `lang` (that's how it's done in several other mulitilingual chefs).
         """
         base_path = os.path.join(EngageNYChef.TREES_DATA_DIR, EngageNYChef.SCRAPING_STAGE_OUTPUT)
-        lang = self.get_lang(**kwargs)
+        lang = self._get_lang(**kwargs)
         json_tree_path = f'{base_path}_{lang}.json'
         self._logger.info('json_tree_path', json_tree_path)
         return json_tree_path
 
-    def get_lang(self, **kwargs):
+    def _get_lang(self, **kwargs):
         return kwargs.get('--lang', kwargs.get('-lang', kwargs.get('lang', 'en'))).lower()
 
+    # Translates a message
     def _(self, msg):
         response = self.translation_client.translate(msg[:5000])
         self._logger.info(response)
@@ -412,34 +413,34 @@ class EngageNYChef(JsonTreeChef):
         kwargs.update(args)
         kwargs.update(options)
         json_tree_path = self.get_json_tree_path(**kwargs)
-        lang = self.get_lang(**kwargs)
+        lang = self._get_lang(**kwargs)
         if lang not in EngageNYChef.SUPPORTED_LANGUAGES:
             supported_languages = ', '.join(EngageNYChef.SUPPORTED_LANGUAGES)
             raise Exception(f'`{lang}` is not a supported language, try: {supported_languages}')
         self.language = lang
-        self.scraping_part(json_tree_path)
+        self._scraping_part(json_tree_path)
 
-    def download_ela_grades(self, channel_tree, grades):
+    def _scrape_ela_grades(self, channel_tree, grades):
         for grade in grades:
-            self.download_ela_grade(channel_tree, grade)
+            self._scrape_ela_grade(channel_tree, grade)
 
-    def download_ela_grade(self, channel_tree, grade):
+    def _scrape_ela_grade(self, channel_tree, grade):
         url = grade['url']
         grade_page = self.get_parsed_html_from_url(url)
         topic_node = dict(
             kind=content_kinds.TOPIC,
             source_id=url,
             title=grade['title'],
-            description=self.get_description(grade_page),
+            description=self._get_description(grade_page),
             children=[]
         )
         for strand_or_module in grade['strands_or_modules']:
-            self.download_ela_strand_or_module(topic_node, strand_or_module)
+            self._scrape_ela_strand_or_module(topic_node, strand_or_module)
         channel_tree['children'].append(topic_node)
 
     PDF_RE = compile(r'^/file/.+/(?P<filename>.+\.pdf).*')
 
-    def get_pdfs_from_downloadable_resources(self, resources):
+    def _get_pdfs_from_downloadable_resources(self, resources):
         if not resources:
             return []
         pdfs = resources.find_all('a', attrs={'href': EngageNYChef.PDF_RE})
@@ -467,21 +468,21 @@ class EngageNYChef(JsonTreeChef):
 
     ELA_MODULE_ZIP_FILE_RE = compile(r'^(/file/\d+/download/.*-\w+-pdf.zip).*$')
 
-    def download_ela_strand_or_module(self, topic, strand_or_module):
+    def _scrape_ela_strand_or_module(self, topic, strand_or_module):
         url = strand_or_module['url']
         strand_or_module_page = self.get_parsed_html_from_url(url)
         strand_or_module_node = dict(
             kind=content_kinds.TOPIC,
             source_id=url,
             title=strand_or_module['title'],
-            description=self.get_description(strand_or_module_page),
-            thumbnail=self.get_thumbnail_url(strand_or_module_page),
+            description=self._get_description(strand_or_module_page),
+            thumbnail=self._get_thumbnail_url(strand_or_module_page),
             children=[],
         )
         node_children = strand_or_module_node['children']
 
         # Gather the module's children from zip file
-        resources = self.get_downloadable_resources_section(strand_or_module_page)
+        resources = self._get_downloadable_resources_section(strand_or_module_page)
         files = []
         if resources:
             module_zip = resources.find('a', attrs={'href': EngageNYChef.ELA_MODULE_ZIP_FILE_RE})
@@ -502,13 +503,13 @@ class EngageNYChef(JsonTreeChef):
                             continue
                         node_children.append(child)
             else:
-                node_children.extend(self.get_pdfs_from_downloadable_resources(resources))
+                node_children.extend(self._get_pdfs_from_downloadable_resources(resources))
         # Gather the children at the next level down
         for domain_or_unit in strand_or_module['domains_or_units']:
-            self.download_ela_domain_or_unit(strand_or_module_node, domain_or_unit, files)
+            self._scrape_ela_domain_or_unit(strand_or_module_node, domain_or_unit, files)
         topic['children'].append(strand_or_module_node)
 
-    def download_ela_domain_or_unit(self, strand_or_module, domain_or_unit, files):
+    def _scrape_ela_domain_or_unit(self, strand_or_module, domain_or_unit, files):
         url = domain_or_unit['url']
         title = domain_or_unit['title']
         domain_or_unit_page = self.get_parsed_html_from_url(url)
@@ -516,8 +517,8 @@ class EngageNYChef(JsonTreeChef):
             kind=content_kinds.TOPIC,
             source_id=url,
             title=title,
-            description=self.get_description(domain_or_unit_page),
-            thumbnail=self.get_thumbnail_url(domain_or_unit_page),
+            description=self._get_description(domain_or_unit_page),
+            thumbnail=self._get_thumbnail_url(domain_or_unit_page),
             license=EngageNYChef.ENGAGENY_LICENSE,
             children=[],
         )
@@ -539,53 +540,53 @@ class EngageNYChef(JsonTreeChef):
                     continue
                 node_children.append(child)
         else:
-            resources = self.get_downloadable_resources_section(domain_or_unit_page)
-            node_children.extend(self.get_pdfs_from_downloadable_resources(resources))
+            resources = self._get_downloadable_resources_section(domain_or_unit_page)
+            node_children.extend(self._get_pdfs_from_downloadable_resources(resources))
 
         for lesson_or_document in domain_or_unit['lessons_or_documents']:
-            self.download_math_lesson(domain_or_unit_node['children'], lesson_or_document, lambda t: t,  language='en')
+            self._scrape_math_lesson(domain_or_unit_node['children'], lesson_or_document, lambda t: t, language='en')
         strand_or_module['children'].append(domain_or_unit_node)
 
-    def download_math_grades(self, channel_tree, grades):
+    def _scrape_math_grades(self, channel_tree, grades):
         for grade in grades:
-            self.download_math_grade(channel_tree, grade)
+            self._scrape_math_grade(channel_tree, grade)
 
-    def get_description(self, markup_node):
+    def _get_description(self, markup_node):
         return self.get_text(markup_node.find('div', 'content-body'))
 
-    def download_math_grade(self, channel_tree, grade):
+    def _scrape_math_grade(self, channel_tree, grade):
         url = grade['url']
         grade_page = self.get_parsed_html_from_url(url)
         topic_node = dict(
             kind=content_kinds.TOPIC,
             source_id=url,
             title=self._(grade['title']),
-            description=self._(self.get_description(grade_page)),
+            description=self._(self._get_description(grade_page)),
             children=[],
         )
         for mod in grade['modules']:
-            self.download_math_module(topic_node, mod)
+            self._scrape_math_module(topic_node, mod)
         channel_tree['children'].append(topic_node)
 
-    def get_thumbnail_url(self, page):
+    def _get_thumbnail_url(self, page):
         thumbnail_url = page.find('img', class_='img-responsive')['src'].split('?')[0] or page.find('meta', property='og:image')['content']
         return None if self.get_suffix(thumbnail_url) == '.gif' else thumbnail_url
 
     MODULE_ASSESSMENTS_RE = compile(r'^(?P<segmentsonly>(.)+-as{1,2}es{1,2}ments{0,1}.(zip|pdf))(.)*')
 
-    def get_module_assessments(self, page):
-        return page.find_all('a', attrs={ 'href': EngageNYChef.MODULE_ASSESSMENTS_RE })
+    def _get_module_assessments(self, page):
+        return page.find_all('a', attrs={'href': EngageNYChef.MODULE_ASSESSMENTS_RE})
 
     MODULE_OVERVIEW_DOCUMENT_RE = compile(r'^(?P<segmentsonly>/file/(.)+-overview(.)*.(pdf|zip))(.)*$')
 
-    def get_module_overview_document(self, page):
+    def _get_module_overview_document(self, page):
         return page.find('a', attrs={'href':  EngageNYChef.MODULE_OVERVIEW_DOCUMENT_RE })
 
-    def download_math_module(self, topic_node, mod):
+    def _scrape_math_module(self, topic_node, mod):
         url = mod['url']
         module_page = self.get_parsed_html_from_url(url)
-        description = self.get_description(module_page)
-        module_overview_document_anchor = self.get_module_overview_document(module_page)
+        description = self._get_description(module_page)
+        module_overview_document_anchor = self._get_module_overview_document(module_page)
         initial_children = []
         module_overview_full_path = ''
         fetch_overview_bundle = False
@@ -593,12 +594,12 @@ class EngageNYChef(JsonTreeChef):
         if module_overview_document_anchor is not None:
             module_overview_file = module_overview_document_anchor['href']
             module_overview_full_path = self.make_fully_qualified_url(module_overview_file)
-            thumbnail_url = self.get_thumbnail_url(module_page)
+            thumbnail_url = self._get_thumbnail_url(module_page)
             overview_node = dict(
                 kind=content_kinds.DOCUMENT,
                 source_id=url,
                 title=self._(mod['title'] + " Overview"),
-                description=self._(self.get_description(module_page)),
+                description=self._(self._get_description(module_page)),
                 license=EngageNYChef.ENGAGENY_LICENSE,
                 thumbnail=thumbnail_url,
                 files=[
@@ -615,7 +616,7 @@ class EngageNYChef(JsonTreeChef):
         else:
             print("didn't find a math module overview match")
 
-        module_assessment_anchors = self.get_module_assessments(module_page)
+        module_assessment_anchors = self._get_module_assessments(module_page)
         if module_assessment_anchors:
             for module_assessment_anchor in module_assessment_anchors:
                 module_assessment_file = module_assessment_anchor['href']
@@ -672,36 +673,36 @@ class EngageNYChef(JsonTreeChef):
             description=self._(description),
             children=initial_children,
             extra_fields=dict(
-                translations=self.get_translations(module_page)
+                translations=self._get_translations(module_page)
             ),
         )
-        self.download_math_topics(module_node, mod['topics'])
+        self._scrape_math_topics(module_node, mod['topics'])
         topic_node['children'].append(module_node)
 
     SUPPORTED_TRANSLATIONS_RE = compile(r'(Spanish|Simplified-Chinese|Traditional-Chinese|Arabic|Bengali|Haitian-Creole)-pdf.zip', re.I)
 
-    def get_translations(self, module_page):
-        downloadable_resources = self.get_downloadable_resources_section(module_page)
+    def _get_translations(self, module_page):
+        downloadable_resources = self._get_downloadable_resources_section(module_page)
         return [
             (
-                EngageNYChef.SUPPORTED_TRANSLATIONS_RE.search(translation['href']).group(1).replace('-', ' '),
-                self.make_fully_qualified_url(translation['href'])
+                EngageNYChef.SUPPORTED_TRANSLATIONS_RE.search(t['href']).group(1).replace('-', ' '),
+                self.make_fully_qualified_url(t['href'])
             )
-            for translation in
+            for t in
             downloadable_resources.find_all('a', attrs={'href': EngageNYChef.SUPPORTED_TRANSLATIONS_RE})
         ]
 
-    def download_math_topics(self, module_node, topics):
+    def _scrape_math_topics(self, module_node, topics):
         for topic in topics:
-            self.download_math_topic(module_node, topic)
+            self._scrape_math_topic(module_node, topic)
 
-    def download_math_topic(self, module_node, topic):
+    def _scrape_math_topic(self, module_node, topic):
         initial_children = []
         url = topic['url']
         topic_page = self.get_parsed_html_from_url(url)
-        description = self.get_description(topic_page)
+        description = self._get_description(topic_page)
 
-        topic_overview_anchor = self.get_module_overview_document(topic_page)
+        topic_overview_anchor = self._get_module_overview_document(topic_page)
         if topic_overview_anchor is not None:
             overview_document_file = topic_overview_anchor['href']
             document_url = self.make_fully_qualified_url(overview_document_file)
@@ -711,7 +712,7 @@ class EngageNYChef(JsonTreeChef):
                 title=self._(topic['title'] + ' Overview'),
                 description=self._(description),
                 license=EngageNYChef.ENGAGENY_LICENSE,
-                thumbnail=self.get_thumbnail_url(topic_page),
+                thumbnail=self._get_thumbnail_url(topic_page),
                 files=[
                     dict(
                         file_type=content_kinds.DOCUMENT,
@@ -721,7 +722,7 @@ class EngageNYChef(JsonTreeChef):
             )
             initial_children.append(overview_node)
 
-        self.download_math_lessons(initial_children, topic['lessons'])
+        self._scrape_math_lessons(initial_children, topic['lessons'])
 
         topic_node = dict(
             kind=content_kinds.TOPIC,
@@ -732,31 +733,31 @@ class EngageNYChef(JsonTreeChef):
         )
         module_node['children'].append(topic_node)
 
-    def download_math_lessons(self, parent, lessons):
+    def _scrape_math_lessons(self, parent, lessons):
         for lesson in lessons:
-            self.download_math_lesson(parent, lesson, self._)
+            self._scrape_math_lesson(parent, lesson, self._)
 
-    def get_downloadable_resources_section(self, page):
+    def _get_downloadable_resources_section(self, page):
         return page.find('div', class_='pane-downloadable-resources')
 
-    def get_related_resources_section(self, page):
+    def _get_related_resources_section(self, page):
         return page.find('div', class_='pane-related-items')
 
-    def download_math_lesson(self, parent, lesson, translate, language=None):
+    def _scrape_math_lesson(self, parent, lesson, translate, language=None):
         lesson_url = lesson['url']
         lesson_page = self.get_parsed_html_from_url(lesson_url)
         title = translate(lesson['title'])
-        description = translate(self.get_description(lesson_page))
+        description = translate(self._get_description(lesson_page))
         lesson_data = dict(
             kind=content_kinds.TOPIC,
             source_id=lesson_url,
             title=title,
             description=description,
             language=language or self.language,
-            thumbnail=self.get_thumbnail_url(lesson_page),
+            thumbnail=self._get_thumbnail_url(lesson_page),
             children=[],
         )
-        resources_pane = self.get_downloadable_resources_section(lesson_page)
+        resources_pane = self._get_downloadable_resources_section(lesson_page)
 
         if resources_pane is None:
             return
@@ -790,7 +791,7 @@ class EngageNYChef(JsonTreeChef):
 
         parent.append(lesson_data)
 
-    def build_scraping_json_tree(self, web_resource_tree):
+    def _build_scraping_json_tree(self, web_resource_tree):
         channel_tree = dict(
             source_domain='engageny.org',
             source_id='engageny_' + self.language,
@@ -800,11 +801,11 @@ class EngageNYChef(JsonTreeChef):
             thumbnail='./content/engageny_logo.png',
             children=[],
         )
-        self.download_ela_grades(channel_tree, web_resource_tree['children']['ela']['grades'])
-        self.download_math_grades(channel_tree, web_resource_tree['children']['math']['grades'])
+        self._scrape_ela_grades(channel_tree, web_resource_tree['children']['ela']['grades'])
+        self._scrape_math_grades(channel_tree, web_resource_tree['children']['math']['grades'])
         return channel_tree
 
-    def scraping_part(self, json_tree_path):
+    def _scraping_part(self, json_tree_path):
         """
         Download all categories, subpages, modules, and resources from engageny and
         store them as a ricecooker json tree in the file `json_tree_path`.
@@ -817,7 +818,7 @@ class EngageNYChef(JsonTreeChef):
         self.translation_client = translation.Client(target_language=self.language)
 
         # Build a Ricecooker tree from scraping process
-        ricecooker_json_tree = self.build_scraping_json_tree(web_resource_tree)
+        ricecooker_json_tree = self._build_scraping_json_tree(web_resource_tree)
         self._logger.info(f'Finished building {json_tree_path}')
 
         # Write out ricecooker_json_tree_{lang_code}.json
