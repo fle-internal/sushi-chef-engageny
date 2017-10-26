@@ -756,7 +756,7 @@ class EngageNYChef(JsonTreeChef):
 
     def _scrape_math_lessons(self, parent, lessons):
         for lesson in lessons:
-            self._scrape_math_lesson(parent, lesson, self._)
+            self._scrape_math_lesson(parent, lesson, self._, self.language)
 
     @staticmethod
     def _get_downloadable_resources_section(page):
@@ -766,17 +766,17 @@ class EngageNYChef(JsonTreeChef):
     def _get_related_resources_section(page):
         return page.find('div', class_='pane-related-items')
 
-    def _scrape_math_lesson(self, parent, lesson, translate, language=None):
+    def _scrape_math_lesson(self, parent, lesson, translate, language):
         lesson_url = lesson['url']
         lesson_page = self.get_parsed_html_from_url(lesson_url)
-        title = translate(lesson['title'])
-        description = translate(EngageNYChef._get_description(lesson_page))
+        title = lesson['title']
+        description = EngageNYChef._get_description(lesson_page)
         lesson_data = dict(
             kind=content_kinds.TOPIC,
             source_id=lesson_url,
-            title=title,
-            description=description,
-            language=language or self.language,
+            title=translate(title),
+            description=translate(description),
+            language=language,
             thumbnail=EngageNYChef._get_thumbnail_url(lesson_page),
             children=[],
         )
@@ -790,25 +790,25 @@ class EngageNYChef(JsonTreeChef):
 
         for row in resources_rows:
             doc_link = row.find_all('td')[1].find('a')
-            description = translate(EngageNYChef.get_text(doc_link))
-            title = translate(EngageNYChef.strip_byte_size(description))
+            description = EngageNYChef.get_text(doc_link)
+            title = EngageNYChef.strip_byte_size(description)
             sanitized_doc_link = doc_link['href'].split('?')[0]
             doc_path = EngageNYChef.make_fully_qualified_url(sanitized_doc_link)
             if 'pdf' in doc_path:
                 document_node = dict(
                     kind=content_kinds.DOCUMENT,
                     source_id=lesson_url + ":" + sanitized_doc_link,
-                    title=title,
+                    title=translate(title),
                     author='Engage NY',
-                    description=description,
+                    description=translate(description),
                     license=EngageNYChef.ENGAGENY_LICENSE,
                     thumbnail=None,
                     files=[dict(
                         file_type=content_kinds.DOCUMENT,
                         path=doc_path,
-                        language=language or self.language,
+                        language=language,
                     )],
-                    language=language or self.language,
+                    language=language,
                 )
                 lesson_data['children'].append(document_node)
 
