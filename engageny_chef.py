@@ -419,7 +419,7 @@ class EngageNYChef(JsonTreeChef):
         kwargs.update(args)
         kwargs.update(options)
         json_tree_path = self.get_json_tree_path(**kwargs)
-        self._scraping_part(json_tree_path)
+        self._scraping_part(json_tree_path, kwargs)
 
     def get_json_tree_path(self, **kwargs):
         """
@@ -455,8 +455,7 @@ class EngageNYChef(JsonTreeChef):
 
     PDF_RE = compile(r'^/file/.+/(?P<filename>.+\.pdf).*')
 
-    @staticmethod
-    def _get_pdfs_from_downloadable_resources(resources):
+    def _get_pdfs_from_downloadable_resources(self, resources):
         if not resources:
             return []
         pdfs = resources.find_all('a', attrs={'href': EngageNYChef.PDF_RE})
@@ -519,7 +518,7 @@ class EngageNYChef(JsonTreeChef):
                             continue
                         node_children.append(child)
             else:
-                node_children.extend(EngageNYChef._get_pdfs_from_downloadable_resources(resources))
+                node_children.extend(self._get_pdfs_from_downloadable_resources(resources))
         # Gather the children at the next level down
         for domain_or_unit in strand_or_module['domains_or_units']:
             self._scrape_ela_domain_or_unit(strand_or_module_node, domain_or_unit, files)
@@ -557,7 +556,7 @@ class EngageNYChef(JsonTreeChef):
                 node_children.append(child)
         else:
             resources = EngageNYChef._get_downloadable_resources_section(domain_or_unit_page)
-            node_children.extend(EngageNYChef._get_pdfs_from_downloadable_resources(resources))
+            node_children.extend(self._get_pdfs_from_downloadable_resources(resources))
 
         for lesson_or_document in domain_or_unit['lessons_or_documents']:
             self._scrape_math_lesson(domain_or_unit_node['children'], lesson_or_document, lambda t: t, language='en')
@@ -828,7 +827,7 @@ class EngageNYChef(JsonTreeChef):
         self._scrape_math_grades(channel_tree, web_resource_tree['children']['math']['grades'])
         return channel_tree
 
-    def _scraping_part(self, json_tree_path):
+    def _scraping_part(self, json_tree_path, options):
         """
         Download all categories, subpages, modules, and resources from engageny and
         store them as a ricecooker json tree in the file `json_tree_path`.
@@ -837,6 +836,9 @@ class EngageNYChef(JsonTreeChef):
         with open(os.path.join(EngageNYChef.TREES_DATA_DIR, EngageNYChef.CRAWLING_STAGE_OUTPUT)) as json_file:
             web_resource_tree = json.load(json_file)
             assert web_resource_tree['kind'] == 'EngageNYWebResourceTree'
+
+        if not self._lang:
+            self._setup_language(options)
 
         # Build a Ricecooker tree from scraping process
         ricecooker_json_tree = self._build_scraping_json_tree(web_resource_tree)
@@ -851,6 +853,11 @@ class EngageNYChef(JsonTreeChef):
         """
         Run the preliminary parts.
         """
+        self._setup_language(options)
+        self.crawl(args, options)
+        self.scrape(args, options)
+
+    def _setup_language(self, options):
         supported_languages = ', '.join(EngageNYChef.SUPPORTED_LANGUAGES)
         lang = EngageNYChef._get_lang(**options)
         if not lang:
@@ -862,8 +869,6 @@ class EngageNYChef(JsonTreeChef):
             exit(-1)
         self._lang = lang
         self.translation_client = translation.Client(target_language=self._lang)
-        self.crawl(args, options)
-        self.scrape(args, options)
 
     @staticmethod
     def _get_lang(**kwargs):
