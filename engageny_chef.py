@@ -399,9 +399,9 @@ class EngageNYChef(JsonTreeChef):
 
     # region Scraping
     def _(self, msg):
-        if len(msg) >= 5000:
-            self._logger.warn("""Message is longer than Google Translation API limit,
-                                 we might consider chunking the translation""")
+        msg_length = len(msg) 
+        if msg_length >= 5000:
+            self._logger.warn(f'Message is longer ({msg_length}) than Google Translation API limit {5000}, we might consider chunking the translation')
         response = self.translation_client.translate(msg[:5000])
         self._logger.info(response)
         if isinstance(response, list):
