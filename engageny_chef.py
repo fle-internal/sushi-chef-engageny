@@ -105,8 +105,7 @@ class EngageNYChef(JsonTreeChef):
 
     LESSON_RE = compile(r'^(?P<lesson>[^\d]+)(?P<number>\d+)$')
 
-    @staticmethod
-    def get_name_and_dict_from_file_path(file_path):
+    def get_name_and_dict_from_file_path(self, file_path):
         def get_title_and_name(m):
             grade, module_letter, module_number, name = m.groups()
             title = ['grade', grade]
@@ -155,8 +154,7 @@ class EngageNYChef(JsonTreeChef):
 
     UNIT_LEVEL_FILENAME_RE = compile(r'^.*(?P<grade>\d+)(?P<moduleletter>\w+)(?P<modulenumber>\d+)\.(?P<unitnumber>\d+)(?P<name>\D+)\.pdf$')
 
-    @staticmethod
-    def get_name_and_dict_from_unit_file_path(file_path):
+    def get_name_and_dict_from_unit_file_path(self, file_path):
         m = EngageNYChef.UNIT_LEVEL_FILENAME_RE.match(file_path)
         if not m:
             return None
@@ -506,7 +504,7 @@ class EngageNYChef(JsonTreeChef):
                 if success:
                     module_files = list(filter(lambda filename: EngageNYChef.MODULE_LEVEL_FILENAME_RE.match(filename) is not None or EngageNYChef.MODULE_LEVEL_PDF_INDIVIDUAL_FILES_RE.match(filename) is not None or EngageNYChef.MODULE_EXTENSION_FILENAME_RE.match(filename) is not None, files))
                     children = sorted(
-                        map(lambda file_path: EngageNYChef.get_name_and_dict_from_file_path(file_path), module_files),
+                        map(lambda file_path: self.get_name_and_dict_from_file_path(file_path), module_files),
                         key=lambda t: t[0]
                     )
                     children_dict = dict(children)
@@ -543,8 +541,8 @@ class EngageNYChef(JsonTreeChef):
         if files:
             unit_files = list(filter(lambda filename: title in filename, files))
             children = sorted(
-                filter(lambda t: t is not None,  map(lambda file_path: EngageNYChef.get_name_and_dict_from_unit_file_path(file_path), unit_files)),
-                key=lambda t:t[0]
+                filter(lambda t: t is not None,  map(lambda file_path: self.get_name_and_dict_from_unit_file_path(file_path), unit_files)),
+                key=lambda t: t[0]
             )
             children_dict = dict(children)
             overview = children_dict.get('unit')
@@ -559,7 +557,7 @@ class EngageNYChef(JsonTreeChef):
             node_children.extend(self._get_pdfs_from_downloadable_resources(resources))
 
         for lesson_or_document in domain_or_unit['lessons_or_documents']:
-            self._scrape_math_lesson(domain_or_unit_node['children'], lesson_or_document, lambda t: t, language='en')
+            self._scrape_math_lesson(domain_or_unit_node['children'], lesson_or_document)
         strand_or_module['children'].append(domain_or_unit_node)
 
     def _scrape_math_grades(self, channel_tree, grades):
@@ -755,7 +753,7 @@ class EngageNYChef(JsonTreeChef):
 
     def _scrape_math_lessons(self, parent, lessons):
         for lesson in lessons:
-            self._scrape_math_lesson(parent, lesson, self._, self._lang)
+            self._scrape_math_lesson(parent, lesson)
 
     @staticmethod
     def _get_downloadable_resources_section(page):
@@ -765,11 +763,13 @@ class EngageNYChef(JsonTreeChef):
     def _get_related_resources_section(page):
         return page.find('div', class_='pane-related-items')
 
-    def _scrape_math_lesson(self, parent, lesson, translate, language):
+    def _scrape_math_lesson(self, parent, lesson):
         lesson_url = lesson['url']
         lesson_page = self.get_parsed_html_from_url(lesson_url)
         title = lesson['title']
         description = EngageNYChef._get_description(lesson_page)
+        translate = self._
+        language = self._lang
         lesson_data = dict(
             kind=content_kinds.TOPIC,
             source_id=lesson_url,
