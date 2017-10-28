@@ -67,8 +67,6 @@ class EngageNYChef(JsonTreeChef):
     CRAWLING_STAGE_OUTPUT = 'web_resource_tree.json'
     SCRAPING_STAGE_OUTPUT = 'ricecooker_json_tree'
 
-    SUPPORTED_LANGUAGES = {lang_code: getlang(lang_code) for lang_code in ['ar', 'bn', 'en', 'es', 'ht', 'zh-CN', 'zh-TW']}
-
     def __init__(self, http_session, logger):
         super(EngageNYChef, self).__init__()
         self.arg_parser = argparse.ArgumentParser(
@@ -79,6 +77,17 @@ class EngageNYChef(JsonTreeChef):
         self._http_session = http_session
         self._logger = logger
         self._lang = None
+
+        self.SUPPORTED_LANGUAGES = {
+            lang_code: getlang(lang_code)
+            for lang_code in ['ar', 'bn', 'en', 'es', 'ht', 'zh-CN', 'zh-TW']
+        }
+        self.EN_DOWNLOADABLE_RESOURCE_RE = re.compile('\.pdf|topic-\w+-lessons-\d+-\d+\.zip', re.I)
+
+        self.NON_EN_DOWNLOADABLE_RESOURCE_RES = {
+            lang_code: re.compile('({}).+pdf\.zip'.format(self.fixup_language_name(lang.name)), re.I)
+            for lang_code, lang in self.SUPPORTED_LANGUAGES.items() if lang_code is not 'en'
+        }
 
     # region Helper functions
 
@@ -378,7 +387,7 @@ class EngageNYChef(JsonTreeChef):
     @staticmethod
     def _crawl_math_lesson(topic, lesson_li):
         details_div = lesson_li.find('div', class_='details')
-        details = details_div.find('a', attrs={ 'href': EngageNYChef.LESSON_URL_RE })
+        details = details_div.find('a', attrs={'href': EngageNYChef.LESSON_URL_RE})
         lesson = {
             'kind': 'EngageNYLesson',
             'title': EngageNYChef.get_text(details),
@@ -608,31 +617,32 @@ class EngageNYChef(JsonTreeChef):
             d[key(item)].append(item)
         return d
 
-    def uniques(self, seq):
+    def uniques(self, seq, key=None):
         seen = set()
-        return [item for item in seq if item not in seen and not seen.add(item)]
+        return [item for item in seq if (key(item) if key else item) not in seen and not seen.add(key(item) if key else item)]
 
-    FIXUP_LANGUAGE_NAME = lambda name: '\-'.join(reversed(name.replace(',', '').replace(';', '').split(' ')))
-
-    EN_DOWNLOADABLE_RESOURCE_RE = re.compile('[^word|{}].+\.pdf(?:\.zip){{0,1}}'.format('|'.join([FIXUP_LANGUAGE_NAME(lang[1].name) for lang in SUPPORTED_LANGUAGES.items() if lang[0] is not 'en'])), re.I)
-
-    NON_EN_DOWNLOADABLE_RESOURCE_RES = {
-        lang_code: re.compile('({}).+pdf\.zip'.format(FIXUP_LANGUAGE_NAME(lang.name)), re.I)
-        for lang_code, lang in SUPPORTED_LANGUAGES.items() if lang_code is not 'en'
-    }
+    # FIXME: Haitian-Creole is coming across as Creole-Haitian which won't match anything,
+    # since there are currently no Haitian translated docs, that's okay,
+    # but once they are available they will be ignore
+    def fixup_language_name(self, name):
+        clean = name.replace('Castilian', '').replace(',', '').replace(';', '')
+        unique_values = self.uniques(clean.split())
+        return '\-'.join(reversed(unique_values))
 
     def _scrape_math_module(self, topic_node, mod):
-        file_extension =  lambda _: _.split('.')[-1].lower()
+        def file_extension(_):
+            return _.split('.')[-1].lower()
 
-        # TODO: Figure out a way to set the regex for `en` to EN_DOWNLOADABLE_RESOURCE_RE at the time we construct NON_EN_DOWNLOADABLE_RESOURCE_RES
-        downloadable_resources_re = EngageNYChef.EN_DOWNLOADABLE_RESOURCE_RE if self._lang is 'en' else EngageNYChef.NON_EN_DOWNLOADABLE_RESOURCE_RES[self._lang]
+        # TODO: Figure out a way to set the regex for `en` to
+        # EN_DOWNLOADABLE_RESOURCE_RE at the time we construct NON_EN_DOWNLOADABLE_RESOURCE_RES
+        downloadable_resources_re = self.EN_DOWNLOADABLE_RESOURCE_RE if self._lang is 'en' else self.NON_EN_DOWNLOADABLE_RESOURCE_RES[self._lang]
+        print(downloadable_resources_re)
 
         url = mod['url']
         module_page = self.get_parsed_html_from_url(url)
         resources = EngageNYChef._get_downloadable_resources_section(module_page)
         anchors = resources.find_all('a', attrs={'href': downloadable_resources_re})
-        filenames = [EngageNYChef.strip_token(a['href'])
- for a in anchors]
+        filenames = [EngageNYChef.strip_token(a['href']) for a in anchors]
         files_by_extension = self.groupby(file_extension, filenames)
 
         zip_files = files_by_extension.get('zip')
@@ -644,10 +654,10 @@ class EngageNYChef(JsonTreeChef):
                 if success:
                     all_pdf_files.extend(files)
 
-        unique_files = self.uniques(all_pdf_files)
+        unique_files = self.uniques(all_pdf_files, lambda filename: os.path.basename(filename))
         return unique_files
 
-    SUPPORTED_TRANSLATIONS_RE = compile(r'(Spanish|Simplified-Chinese|Traditional-Chinese|Arabic|Bengali|Haitian-Creole)-pdf.zip', re.I)
+    SUPPORTED_TRANSLATIONS_RE = compile(r'Spanish|Simplified-Chinese|Traditional-Chinese|Arabic|Bengali|Haitian-Creole)-pdf.zip', re.I)
 
     @staticmethod
     def _get_translations(module_page):
@@ -809,12 +819,12 @@ class EngageNYChef(JsonTreeChef):
         self.scrape(args, options)
 
     def _setup_language(self, options):
-        supported_languages = ', '.join(EngageNYChef.SUPPORTED_LANGUAGES)
+        supported_languages = ', '.join(self.SUPPORTED_LANGUAGES)
         lang = EngageNYChef._get_lang(**options)
         if not lang:
             print(f'\n`lang` is a required argument, choose from one of: {supported_languages}')
             exit(-1)
-        if lang not in EngageNYChef.SUPPORTED_LANGUAGES:
+        if lang not in self.SUPPORTED_LANGUAGES:
 
             print(f'\n`{lang}` is not a supported language, try one of: {supported_languages}')
             exit(-1)
