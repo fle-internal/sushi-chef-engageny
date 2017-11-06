@@ -72,7 +72,7 @@ class EngageNYChef(JsonTreeChef):
         self.arg_parser = argparse.ArgumentParser(
             description="EngageNY sushi chef.",
             add_help=True,
-            parents=[self.arg_parser]
+            parents=[self.arg_parser],
         )
         self._http_session = http_session
         self._logger = logger
@@ -623,7 +623,7 @@ class EngageNYChef(JsonTreeChef):
 
     # FIXME: Haitian-Creole is coming across as Creole-Haitian which won't match anything,
     # since there are currently no Haitian translated docs, that's okay,
-    # but once they are available they will be ignore
+    # but once they are available they will be ignored
     def fixup_language_name(self, name):
         clean = name.replace('Castilian', '').replace(',', '').replace(';', '')
         unique_values = self.uniques(clean.split())
@@ -635,9 +635,7 @@ class EngageNYChef(JsonTreeChef):
 
         # TODO: Figure out a way to set the regex for `en` to
         # EN_DOWNLOADABLE_RESOURCE_RE at the time we construct NON_EN_DOWNLOADABLE_RESOURCE_RES
-        downloadable_resources_re = self.EN_DOWNLOADABLE_RESOURCE_RE if self._lang is 'en' else self.NON_EN_DOWNLOADABLE_RESOURCE_RES[self._lang]
-        print(downloadable_resources_re)
-
+        downloadable_resources_re = self.EN_DOWNLOADABLE_RESOURCE_RE if self._lang == 'en' else self.NON_EN_DOWNLOADABLE_RESOURCE_RES[self._lang]
         url = mod['url']
         module_page = self.get_parsed_html_from_url(url)
         resources = EngageNYChef._get_downloadable_resources_section(module_page)
@@ -646,7 +644,7 @@ class EngageNYChef(JsonTreeChef):
         files_by_extension = self.groupby(file_extension, filenames)
 
         zip_files = files_by_extension.get('zip')
-        all_pdf_files = files_by_extension.get('pdf', [])
+        all_pdf_files = list(map(EngageNYChef.make_fully_qualified_url, files_by_extension.get('pdf', [])))
         if zip_files:
             for f in zip_files:
                 print(f)
@@ -654,10 +652,10 @@ class EngageNYChef(JsonTreeChef):
                 if success:
                     all_pdf_files.extend(files)
 
-        unique_files = self.uniques(all_pdf_files, lambda filename: os.path.basename(filename))
+        unique_files = self.uniques(all_pdf_files, os.path.basename)
         return unique_files
 
-    SUPPORTED_TRANSLATIONS_RE = compile(r'Spanish|Simplified-Chinese|Traditional-Chinese|Arabic|Bengali|Haitian-Creole)-pdf.zip', re.I)
+    SUPPORTED_TRANSLATIONS_RE = compile(r'(Spanish|Simplified-Chinese|Traditional-Chinese|Arabic|Bengali|Haitian-Creole)-pdf.zip', re.I)
 
     @staticmethod
     def _get_translations(module_page):
