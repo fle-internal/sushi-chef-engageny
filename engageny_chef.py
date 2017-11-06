@@ -151,7 +151,7 @@ class EngageNYChef(JsonTreeChef):
         translated_title = self._(title)
         return name.lower(), dict(
             kind=content_kinds.DOCUMENT,
-            source_id=file_path,
+            source_id=os.path.basename(file_path),
             title=translated_title,
             description=translated_title,
             license=EngageNYChef.ENGAGENY_LICENSE,
@@ -182,7 +182,7 @@ class EngageNYChef(JsonTreeChef):
         translated_title = self._(title.title())
         return name.lower(), dict(
             kind=content_kinds.DOCUMENT,
-            source_id=file_path,
+            source_id=os.path.basename(file_path),
             title=translated_title,
             description=translated_title,
             license=EngageNYChef.ENGAGENY_LICENSE,
@@ -478,7 +478,7 @@ class EngageNYChef(JsonTreeChef):
             title = EngageNYChef.strip_byte_size(description)
             files[i] = dict(
                 kind=content_kinds.DOCUMENT,
-                source_id=url,
+                source_id=os.path.basename(url),
                 title=self._(title),
                 description=self._(description),
                 license=EngageNYChef.ENGAGENY_LICENSE,
@@ -569,7 +569,7 @@ class EngageNYChef(JsonTreeChef):
             node_children.extend(self._get_pdfs_from_downloadable_resources(resources))
 
         for lesson_or_document in domain_or_unit['lessons_or_documents']:
-            self._scrape_math_lesson(domain_or_unit_node['children'], lesson_or_document)
+            self._scrape_math_lesson(domain_or_unit_node['children'], lesson_or_document, lambda _: _)
         strand_or_module['children'].append(domain_or_unit_node)
 
     def _scrape_math_grades(self, channel_tree, grades):
@@ -647,13 +647,47 @@ class EngageNYChef(JsonTreeChef):
         all_pdf_files = list(map(EngageNYChef.make_fully_qualified_url, files_by_extension.get('pdf', [])))
         if zip_files:
             for f in zip_files:
-                print(f)
                 success, files = self.download_zip_file(EngageNYChef.make_fully_qualified_url(f))
                 if success:
                     all_pdf_files.extend(files)
 
         unique_files = self.uniques(all_pdf_files, os.path.basename)
+        module_node = dict(
+            kind=content_kinds.TOPIC,
+            source_id=url,
+            title=self._(mod['title']),
+            description=EngageNYChef._get_description(module_page),
+            # TODO: Sort correctly
+            children=[self._get_document(f) for f in unique_files],
+            language=self._lang,
+        )
+        self._scrape_math_topics(module_node, mod['topics'], self._location_resolver({os.path.basename(f): f for f in unique_files}))
+        topic_node['children'].append(module_node)
         return unique_files
+
+    def _get_document(self, f):
+        filename = os.path.basename(f)
+        sanitized_filename = self._(filename.split('.')[0].replace('-', ' ').title())
+        return dict(
+            kind=content_kinds.DOCUMENT,
+            source_id=filename,
+            title=sanitized_filename,
+            description=sanitized_filename,
+            license=EngageNYChef.ENGAGENY_LICENSE,
+            language=self._lang,
+            files=[
+                dict(
+                    file_type=content_kinds.DOCUMENT,
+                    path=f
+                )
+            ]
+        )
+
+    def _location_resolver(self, env):
+        def resolve(name):
+            filename = os.path.basename(name)
+            return env.get(filename, name)
+        return resolve
 
     SUPPORTED_TRANSLATIONS_RE = compile(r'(Spanish|Simplified-Chinese|Traditional-Chinese|Arabic|Bengali|Haitian-Creole)-pdf.zip', re.I)
 
@@ -669,11 +703,11 @@ class EngageNYChef(JsonTreeChef):
             downloadable_resources.find_all('a', attrs={'href': EngageNYChef.SUPPORTED_TRANSLATIONS_RE})
         ]
 
-    def _scrape_math_topics(self, module_node, topics):
+    def _scrape_math_topics(self, module_node, topics, asset_resolver):
         for topic in topics:
-            self._scrape_math_topic(module_node, topic)
+            self._scrape_math_topic(module_node, topic, asset_resolver)
 
-    def _scrape_math_topic(self, module_node, topic):
+    def _scrape_math_topic(self, module_node, topic, asset_resolver):
         initial_children = []
         url = topic['url']
         topic_page = self.get_parsed_html_from_url(url)
@@ -685,7 +719,7 @@ class EngageNYChef(JsonTreeChef):
             document_url = EngageNYChef.make_fully_qualified_url(overview_document_file)
             overview_node = dict(
                 kind=content_kinds.DOCUMENT,
-                source_id=document_url,
+                source_id=os.path.basename(document_url),
                 title=self._(topic['title'] + ' Overview'),
                 description=self._(description),
                 license=EngageNYChef.ENGAGENY_LICENSE,
@@ -693,13 +727,13 @@ class EngageNYChef(JsonTreeChef):
                 files=[
                     dict(
                         file_type=content_kinds.DOCUMENT,
-                        path=document_url,
+                        path=asset_resolver(document_url),
                     )
                 ]
             )
             initial_children.append(overview_node)
 
-        self._scrape_math_lessons(initial_children, topic['lessons'])
+        self._scrape_math_lessons(initial_children, topic['lessons'], asset_resolver)
 
         topic_node = dict(
             kind=content_kinds.TOPIC,
@@ -710,9 +744,9 @@ class EngageNYChef(JsonTreeChef):
         )
         module_node['children'].append(topic_node)
 
-    def _scrape_math_lessons(self, parent, lessons):
+    def _scrape_math_lessons(self, parent, lessons, asset_resolver):
         for lesson in lessons:
-            self._scrape_math_lesson(parent, lesson)
+            self._scrape_math_lesson(parent, lesson, asset_resolver)
 
     @staticmethod
     def _get_downloadable_resources_section(page):
@@ -722,7 +756,7 @@ class EngageNYChef(JsonTreeChef):
     def _get_related_resources_section(page):
         return page.find('div', class_='pane-related-items')
 
-    def _scrape_math_lesson(self, parent, lesson):
+    def _scrape_math_lesson(self, parent, lesson, asset_resolver):
         lesson_url = lesson['url']
         lesson_page = self.get_parsed_html_from_url(lesson_url)
         title = lesson['title']
@@ -755,7 +789,7 @@ class EngageNYChef(JsonTreeChef):
             if 'pdf' in doc_path:
                 document_node = dict(
                     kind=content_kinds.DOCUMENT,
-                    source_id=lesson_url + ":" + sanitized_doc_link,
+                    source_id=os.path.basename(doc_path),
                     title=translate(title),
                     author='Engage NY',
                     description=translate(description),
@@ -763,7 +797,7 @@ class EngageNYChef(JsonTreeChef):
                     thumbnail=None,
                     files=[dict(
                         file_type=content_kinds.DOCUMENT,
-                        path=doc_path,
+                        path=asset_resolver(doc_path),
                         language=language,
                     )],
                     language=language,
@@ -823,7 +857,6 @@ class EngageNYChef(JsonTreeChef):
             print(f'\n`lang` is a required argument, choose from one of: {supported_languages}')
             exit(-1)
         if lang not in self.SUPPORTED_LANGUAGES:
-
             print(f'\n`{lang}` is not a supported language, try one of: {supported_languages}')
             exit(-1)
         self._lang = lang
@@ -832,7 +865,7 @@ class EngageNYChef(JsonTreeChef):
     @staticmethod
     def _get_lang(**kwargs):
         lang = kwargs.get('lang')
-        return lang.lower() if lang else None
+        return lang if lang else None
 
 # endregion Chef
 
