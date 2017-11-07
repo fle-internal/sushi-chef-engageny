@@ -18,6 +18,7 @@ from re import compile
 import zipfile
 import io
 import argparse
+# from retrying import retry
 
 from le_utils.constants import content_kinds, licenses
 from le_utils.constants.languages import getlang
@@ -409,16 +410,19 @@ class EngageNYChef(JsonTreeChef):
     # endregion Crawling
 
     # region Scraping
+    # @retry(stop_max_attempt_number=3, wait_fixed=61000)
     def _(self, msg):
-        return msg
-        # msg_length = len(msg) 
-        # if msg_length >= 5000:
-        #     self._logger.warn(f'Message is longer ({msg_length}) than Google Translation API limit {5000}, we might consider chunking the translation')
-        # response = self.translation_client.translate(msg[:5000])
-        # self._logger.info(response)
-        # if isinstance(response, list):
-        #     return response[0]['translatedText']
-        # return response['translatedText']
+        msg_length = len(msg) 
+        if msg_length >= 5000:
+            self._logger.warn(f'Message is longer ({msg_length}) than Google Translation API limit `5000`, we might consider chunking the translation')
+        try:
+            response = self.translation_client.translate(msg[:5000])
+            if isinstance(response, list):
+                return response[0]['translatedText']
+            return response['translatedText']
+        except:
+            self._logger.warn('Message will not be translated')
+            return msg
 
     def scrape(self, args, options):
         """
@@ -811,7 +815,7 @@ class EngageNYChef(JsonTreeChef):
             source_domain='engageny.org',
             source_id='engageny_' + self._lang,
             title=self._(web_resource_tree['title']),
-            description=self._('EngageNY Common Core Curriculum Content... ELA and CCSSM combined'),
+            description=self._(f'EngageNY ({self._lang})'),
             language=self._lang,
             thumbnail='./content/engageny_logo.png',
             children=[],
