@@ -676,7 +676,7 @@ class EngageNYChef(JsonTreeChef):
             kind=content_kinds.TOPIC,
             source_id=url,
             title=self._(mod['title']),
-            description=EngageNYChef._get_description(module_page),
+            description=self._(EngageNYChef._get_description(module_page)),
             # TODO: Sort correctly
             children=[self._get_document(f) for f in unique_files],
             language=self._lang,
