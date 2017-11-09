@@ -20,6 +20,7 @@ import zipfile
 import io
 import argparse
 from google.api.core import exceptions
+import cache
 
 from le_utils.constants import content_kinds, licenses
 from le_utils.constants.languages import getlang
@@ -66,6 +67,7 @@ class EngageNYChef(JsonTreeChef):
     DATA_DIR = 'chefdata'
     TREES_DATA_DIR = os.path.join(DATA_DIR, 'trees')
     PDFS_DATA_DIR = os.path.join(DATA_DIR, 'pdfs')
+    TRANSLATIONS_DATA_DIR = os.path.join(DATA_DIR, 'translations-cache')
     CRAWLING_STAGE_OUTPUT = 'web_resource_tree.json'
     SCRAPING_STAGE_OUTPUT = 'ricecooker_json_tree'
 
@@ -880,12 +882,21 @@ class EngageNYChef(JsonTreeChef):
             print(f'\n`{lang}` is not a supported language, try one of: {supported_languages}')
             exit(-1)
         self._lang = lang
-        self.translation_client = translation.Client(target_language=self._lang)
+        translator = translation.Client(target_language=self._lang)
+        translator_cache = cache.Db(EngageNYChef.TRANSLATIONS_DATA_DIR, self._lang)
+        self.translation_client = translation.CachingClient(translator, translator_cache)
 
     @staticmethod
     def _get_lang(**kwargs):
         lang = kwargs.get('lang')
         return lang if lang else None
+
+    # TODO: Make this compatible with Python's `with` statement
+    def dispose(self):
+        try:
+            self.translation_client.close()
+        except:
+            self._logger.warn('Error happened while disposing')
 
 # endregion Chef
 
@@ -903,7 +914,10 @@ def __get_testing_chef():
 
 
 if __name__ == '__main__':
-    chef = EngageNYChef(create_http_session(EngageNYChef.HOSTNAME), create_logger())
-    chef.main()
+    try:
+        chef = EngageNYChef(create_http_session(EngageNYChef.HOSTNAME), create_logger())
+        chef.main()
+    finally:
+        chef.dispose()
 
 # endregion CLI

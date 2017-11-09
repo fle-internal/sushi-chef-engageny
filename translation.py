@@ -1,5 +1,23 @@
 from google.cloud import translate
 
+class CachingClient:
+    def __init__(self, translator, cache):
+        self.translator = translator
+        self.cache = cache
+
+    def translate(self, values):
+        found, translation = self.cache.get(values)
+        if found:
+            return translation
+        translated = self.translator.translate(values)
+        self.cache.add(values, translated)
+        return translated
+
+    # TODO: Make this compatible with Python's `with` statement
+    def close(self):
+        self.cache.close()
+
+
 class Client:
     def __init__(self, source_language='en', target_language=None, format_='text', model='nmt'):
         self.source_language = source_language
