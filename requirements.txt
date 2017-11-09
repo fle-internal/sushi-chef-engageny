@@ -1,3 +1,4 @@
+shelve2 >= 1.0
 google_cloud_translate>=1.2.0
 ricecooker>=0.6.6
 jupyter==1.0.0
