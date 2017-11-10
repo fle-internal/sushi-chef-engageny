@@ -416,27 +416,19 @@ class EngageNYChef(JsonTreeChef):
     def _(self, msg):
         sleep_period_secs = 100
         max_tries = 4
-        msg_length = len(msg)
-        msg_to_translate = ''
-        if msg_length >= 5000:
-            self._logger.warn(f'Message is longer ({msg_length}) than Google Translation API limit `5000`, we might consider chunking the translation')
-            msg_to_translate = msg[:4996] + " ..."
-        else:
-            msg_to_translate = msg
-
         try_ = 1
         while try_ < max_tries:
             try:
-                response = self.translation_client.translate(msg_to_translate)
+                response = self.translation_client.translate(msg)
                 if isinstance(response, list):
-                    return response[0]['translatedText']
+                    return ''.join([r['translatedText'] for r in response])
                 return response['translatedText']
             except exceptions.Forbidden as forbidden:
                 self._logger.warn(f'Error `{forbidden}`, the message will not be translated')
                 return msg
             except:
-                e = exc_info()[0]
-                self._logger.warn(f'An error occurred `{e}`, will sleep for {sleep_period_secs} seconds, try `{try_}` out of {max_tries}')
+                t, v, traceback = exc_info()
+                self._logger.warn(f'An error occurred `{t}, {v}, {traceback}`, will sleep for {sleep_period_secs} seconds, try `{try_}` out of {max_tries}')
                 try_ += 1
                 sleep(sleep_period_secs)
         self._logger.warn('All retries exahusted, the message will not be translated')
@@ -895,8 +887,8 @@ class EngageNYChef(JsonTreeChef):
     def dispose(self):
         try:
             self.translation_client.close()
-        except:
-            self._logger.warn('Error happened while disposing')
+        except Exception as e :
+            self._logger.warn(f'Error happened while disposing: {e}')
 
 # endregion Chef
 
