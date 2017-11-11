@@ -424,9 +424,6 @@ class EngageNYChef(JsonTreeChef):
                     return ''.join([r['translatedText'] for r in response])
                 return response['translatedText']
             except exceptions.Forbidden as forbidden:
-                self._logger.warn(f'Error `{forbidden}`, the message will not be translated')
-                return msg
-            except:
                 t, v, traceback = exc_info()
                 self._logger.warn(f'An error occurred `{t}, {v}, {traceback}`, will sleep for {sleep_period_secs} seconds, try `{try_}` out of {max_tries}')
                 try_ += 1

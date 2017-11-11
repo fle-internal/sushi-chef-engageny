@@ -37,13 +37,7 @@ class Client:
                     translatedText=v
                 ) for v in strings_to_translate
             ]
-        return self.client.translate(
-            values,
-            target_language=self.target_language,
-            format_=self.format,
-            source_language=self.source_language,
-            model=self.model,
-        )
+        return [self.client.translate(msg, target_language=self.target_language, format_=self.format, source_language=self.source_language, model=self.model) for msg in strings_to_translate]
 
     def chunks(self, values):
         return [values[i:i+Client.MAX_LENGTH] for i in range(0, len(values), Client.MAX_LENGTH)]
