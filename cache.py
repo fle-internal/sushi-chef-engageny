@@ -5,6 +5,8 @@ import hashlib
 class Db:
     def __init__(self, basedir, lang):
         self.db = shelve2.open2(join(basedir, f'translation-cache-{lang}'))
+        self.hits = 0
+        self.misses = 0
 
     def _genkey(self, text):
         return hashlib.sha256(text.encode('utf8')).hexdigest()
@@ -17,7 +19,15 @@ class Db:
 
     def get(self, key):
         genkey = self._genkey(key)
-        return (True, self.db[genkey]) if genkey in self.db else (False, None)
+        if genkey in self.db:
+            self.hits += 1
+            return (True, self.db[genkey])
+        else:
+            self.misses += 1
+            return (False, None)
+
+    def stats(self):
+        return dict(hits=self.hits, misses=self.misses)
 
     def close(self):
         self.db.close()
