@@ -23,11 +23,21 @@ class TestCachingClient(unittest.TestCase):
         times = 5
 
         for i in range(0, members * times):
-            translation = self.translation_caching_client.translate(str(i % members))
+            _ = self.translation_caching_client.translate(str(i % members))
 
         stats = self.translation_caching_client.stats()
         self.assertEqual(stats['misses'], members)
         self.assertEqual(stats['hits'], (members * times) - members)
+
+    def test_misses(self):
+        members = 43
+        for i in range(0, members):
+            _ = self.translation_caching_client.translate(str(i))
+
+        stats = self.translation_caching_client.stats()
+        self.assertEqual(stats['misses'], members)
+        self.assertEqual(stats['hits'], 0)
+
 
 if __name__ == '__main__':
     unittest.main()
