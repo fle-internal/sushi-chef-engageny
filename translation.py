@@ -17,6 +17,8 @@ class CachingClient:
     def close(self):
         self.cache.close()
 
+    def stats(self):
+        return self.cache.stats()
 
 class Client:
     MAX_LENGTH = 5000

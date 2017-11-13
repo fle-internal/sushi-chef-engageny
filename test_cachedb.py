@@ -18,11 +18,17 @@ class TestCacheDbMethods(unittest.TestCase):
         found, data = self.db.get('hola')
         assert found
         assert data == 'mundo!'
+        stats = self.db.stats()
+        assert stats['misses'] == 0
+        assert stats['hits'] == 1
 
     def test_add_not_found(self):
         found, data = self.db.get('hola')
         assert not found
         assert not data
+        stats = self.db.stats()
+        assert stats['misses'] == 1
+        assert stats['hits'] == 0
 
     def test_remove(self):
         self.db.add(key='hola', data=u'mundo!')
@@ -40,6 +46,21 @@ class TestCacheDbMethods(unittest.TestCase):
         found, data = self.db.get('hola')
         assert found
         assert data == 'world!'
+
+    def test_hits_and_misses(self):
+        members = 10
+        times = 5
+
+        # Exercise the cache
+        for i in range(0, members * times):
+            found, data = self.db.get(str(i % members))
+            if not found:
+                key = str(i)
+                self.db.add(key=key, data=f'value_{key}')
+
+        stats = self.db.stats()
+        assert stats['misses'] == members
+        assert stats['hits'] == (members * times) - members
 
 if __name__ == '__main__':
     unittest.main()

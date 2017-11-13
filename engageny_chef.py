@@ -668,6 +668,7 @@ class EngageNYChef(JsonTreeChef):
             source_id=url,
             title=self._(mod['title']),
             description=self._(EngageNYChef._get_description(module_page)),
+            thumbnail_url=EngageNYChef._get_thumbnail_url(module_page),
             # TODO: Sort correctly
             children=[self._get_document(f) for f in unique_files],
             language=self._lang,
