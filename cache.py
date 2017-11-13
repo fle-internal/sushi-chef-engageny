@@ -1,10 +1,12 @@
 import shelve2
 from os.path import join
 import hashlib
+from json import dump
 
 class Db:
     def __init__(self, basedir, lang):
-        self.db = shelve2.open2(join(basedir, f'translation-cache-{lang}'))
+        self.db_path = join(basedir, f'translation-cache-{lang}')
+        self.db = shelve2.open2(self.db_path)
         self.hits = 0
         self.misses = 0
 
@@ -30,4 +32,6 @@ class Db:
         return dict(hits=self.hits, misses=self.misses)
 
     def close(self):
+        with open(self.db_path + '.cache_stats.txt', 'w') as f:
+            dump(self.stats(), f)
         self.db.close()
