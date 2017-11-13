@@ -3,7 +3,7 @@
 Chef script for common core material from engageny.org
 
 Dependencies:
-Google Translation API (https://cloud.google.com/translate/docs/)
+Google Cloud Translation API (https://cloud.google.com/translate/docs/)
 
 Install
 -------
@@ -16,7 +16,7 @@ Install
 
 Run
 ---
-    export GOOGLE_APPLICATION_CREDENTIALS=<path_to_service_account_file>
+    export GOOGLE_APPLICATION_CREDENTIALS=<PATH_TO_SERVICE_ACCOUNT_FILE>
     source venv/bin/activate
     ./engageny_chef.py -v --reset --token=<YOURTOKEN>
 
