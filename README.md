@@ -3,7 +3,7 @@
 Chef script for common core material from engageny.org
 
 Dependencies:
-Google Translation API (https://cloud.google.com/translate/docs/)
+Google Cloud Translation API (https://cloud.google.com/translate/docs/)
 
 Install
 -------
