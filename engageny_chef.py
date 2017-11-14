@@ -683,7 +683,6 @@ class EngageNYChef(JsonTreeChef):
         )
         self._scrape_math_topics(module_node, mod['topics'], self._location_resolver({os.path.basename(f): f for f in unique_files}))
         topic_node['children'].append(module_node)
-        return unique_files
 
     def _get_document(self, f):
         filename = os.path.basename(f)
