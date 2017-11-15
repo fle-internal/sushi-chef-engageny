@@ -97,7 +97,7 @@ class EngageNYChef(JsonTreeChef):
         self.EN_DOWNLOADABLE_RESOURCE_RE = re.compile('\.pdf|topic-\w+-lessons-\d+-\d+\.zip', re.I)
 
         self.NON_EN_DOWNLOADABLE_RESOURCE_RES = {
-            lang_code: re.compile('({}).+pdf\.zip'.format(self.fixup_language_name(lang.name)), re.I)
+            lang_code: re.compile('\.pdf|({}).+pdf\.zip'.format(self.fixup_language_name(lang.name)), re.I)
             for lang_code, lang in self.SUPPORTED_LANGUAGES.items() if lang_code is not 'en'
         }
 
