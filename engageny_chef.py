@@ -827,7 +827,8 @@ class EngageNYChef(JsonTreeChef):
     # TODO: Make this compatible with Python's `with` statement
     def dispose(self):
         try:
-            self.translation_client.close()
+            if self.translation_client:
+                self.translation_client.close()
         except Exception as e :
             self._logger.warn(f'Error happened while disposing: {e}')
 
