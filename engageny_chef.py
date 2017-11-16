@@ -502,7 +502,7 @@ class EngageNYChef(JsonTreeChef):
         for domain_or_unit in strand_or_module['domains_or_units']:
             used_files.update(self._scrape_ela_domain_or_unit(strand_or_module_node, domain_or_unit, unique_files))
 
-        unused_files = set(unique_files).difference(used_files)
+        unused_files = sorted(set(unique_files).difference(used_files))
         asset_resolver = self._location_resolver({os.path.basename(f): f for f in unique_files})
         strand_or_module_node['children'] = [self._get_document(f, asset_resolver) for f in unused_files] + strand_or_module_node['children']
         topic['children'].append(strand_or_module_node)
@@ -524,7 +524,7 @@ class EngageNYChef(JsonTreeChef):
         used_files = set()
         for lesson_or_document in domain_or_unit['lessons_or_documents']:
             used_files.update(self._scrape_math_lesson(domain_or_unit_node['children'], lesson_or_document, files + unique_files))
-        unused_files = set(unique_files).difference(used_files)
+        unused_files = sorted(set(unique_files).difference(used_files))
         domain_or_unit_node['children'] = [
             self._get_document(f, self._location_resolver({os.path.basename(f): f for f in unique_files}))
             for f in unused_files
