@@ -502,10 +502,11 @@ class EngageNYChef(JsonTreeChef):
         for domain_or_unit in strand_or_module['domains_or_units']:
             used_files.update(self._scrape_ela_domain_or_unit(strand_or_module_node, domain_or_unit, unique_files))
 
-        unused_files = sorted(set(unique_files).difference(used_files))
+        unused_files = sorted(set(map(os.path.basename, unique_files)).difference(map(os.path.basename, used_files)))
         asset_resolver = self._location_resolver({os.path.basename(f): f for f in unique_files})
         strand_or_module_node['children'] = [self._get_document(f, asset_resolver) for f in unused_files] + strand_or_module_node['children']
         topic['children'].append(strand_or_module_node)
+        return unused_files, unique_files
 
     def _scrape_ela_domain_or_unit(self, strand_or_module, domain_or_unit, files):
         url = domain_or_unit['url']
@@ -521,14 +522,15 @@ class EngageNYChef(JsonTreeChef):
             children=[],
         )
         unique_files = self._scrape_downloadable_resources_pdfs(EngageNYChef._get_downloadable_resources_section(domain_or_unit_page), EngageNYChef.PDF_RE)
+        all_files = files + unique_files
         used_files = set()
         for lesson_or_document in domain_or_unit['lessons_or_documents']:
-            used_files.update(self._scrape_math_lesson(domain_or_unit_node['children'], lesson_or_document, files + unique_files))
-        unused_files = sorted(set(unique_files).difference(used_files))
+            used_files.update(self._scrape_math_lesson(domain_or_unit_node['children'], lesson_or_document, all_files))
+        unused_files = sorted(set(map(os.path.basename, unique_files)).difference(map(os.path.basename, used_files)))
         domain_or_unit_node['children'] = [
-            self._get_document(f, self._location_resolver({os.path.basename(f): f for f in unique_files}))
+            self._get_document(f, self._location_resolver({os.path.basename(f): f for f in all_files}))
             for f in unused_files
-        ] + domain_or_unit_node['children'] 
+        ] + domain_or_unit_node['children']
         used_files.update(unused_files)
         strand_or_module['children'].append(domain_or_unit_node)
         return used_files
@@ -729,7 +731,7 @@ class EngageNYChef(JsonTreeChef):
         translate = self._
         language = self._lang
         unique_files = self._scrape_downloadable_resources_pdfs(EngageNYChef._get_downloadable_resources_section(lesson_page), EngageNYChef.PDF_RE)
-        asset_resolver = self._location_resolver({os.path.basename(f): f for f in files})
+        asset_resolver = self._location_resolver({os.path.basename(f): f for f in files + unique_files})
         if len(unique_files) == 1:
             filename = os.path.basename(unique_files[0])
             parent.append(dict(
@@ -743,7 +745,7 @@ class EngageNYChef(JsonTreeChef):
                 files=[
                     dict(
                         file_type=content_kinds.DOCUMENT,
-                        path=asset_resolver(unique_files[0]),
+                        path=asset_resolver(filename),
                     )
                 ]
             ))
