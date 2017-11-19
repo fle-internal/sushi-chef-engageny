@@ -18,5 +18,5 @@ Run
 ---
     export GOOGLE_APPLICATION_CREDENTIALS=<PATH_TO_SERVICE_ACCOUNT_FILE>
     source venv/bin/activate
-    ./engageny_chef.py -v --reset --token=<YOURTOKEN>
+    ./engageny_chef.py -v --reset --token=<YOURTOKEN> lang=<LANG_CODE>
 
