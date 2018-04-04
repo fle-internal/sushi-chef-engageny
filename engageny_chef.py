@@ -61,7 +61,7 @@ class EngageNYChef(JsonTreeChef):
     them to Kolibri Studio, the content curation server.
     """
     HOSTNAME = 'engageny.org'
-    ENGAGENY_CC_START_URL = f'https://www.{HOSTNAME}/common-core-curriculum'
+    ENGAGENY_CC_START_URL = 'https://www.{HOSTNAME}/common-core-curriculum'.format(HOSTNAME=HOSTNAME)
     ENGAGENY_LICENSE = get_license(licenses.CC_BY_NC_SA, copyright_holder='Engage NY').as_dict()
 
     DATA_DIR = 'chefdata'
@@ -183,9 +183,9 @@ class EngageNYChef(JsonTreeChef):
             return None
 
         grade, module_letter, module_number, unit_number, name = m.groups()
-        title = f'Grade {grade} '
+        title = 'Grade {grade} '.format(grade=grade)
         if module_letter == 'm':
-            title += f"module {module_number} Unit {unit_number}"
+            title += "module {module_number} Unit {unit_number}".format(module_number=module_number, unit_number=unit_number)
         if name == 'unit':
             title += " Overview"
         else:
@@ -433,7 +433,7 @@ class EngageNYChef(JsonTreeChef):
                 return response['translatedText']
             except exceptions.Forbidden as forbidden:
                 t, v, traceback = exc_info()
-                self._logger.warn(f'An error occurred `{t}, {v}, {traceback}`, will sleep for {sleep_period_secs} seconds, try `{try_}` out of {max_tries}')
+                self._logger.warn('An error occurred `{t}, {v}, {traceback}`, will sleep for {sleep_period_secs} seconds, try `{try_}` out of {max_tries}'.format(t=t, v=v, traceback=traceback, sleep_period_secs=sleep_period_secs,try_=try_,max_tries=max_tries))
                 try_ += 1
                 sleep(sleep_period_secs)
         self._logger.error('All translation retries exahusted for this message, will stop')
@@ -460,7 +460,7 @@ class EngageNYChef(JsonTreeChef):
         kwarg `lang` (that's how it's done in several other mulitilingual chefs).
         """
         base_path = os.path.join(EngageNYChef.TREES_DATA_DIR, EngageNYChef.SCRAPING_STAGE_OUTPUT)
-        json_tree_path = f'{base_path}_{self._lang}.json'
+        json_tree_path = '{base_path}_{lang}.json'.format(base_path=base_path, lang=self._lang)
         self._logger.info('json_tree_path', json_tree_path)
         return json_tree_path
 
@@ -756,7 +756,7 @@ class EngageNYChef(JsonTreeChef):
         channel_tree = dict(
             source_domain='engageny.org',
             source_id='engageny_' + self._lang,
-            title=self._(f'EngageNY ({self._lang})'),
+            title=self._('EngageNY ({lang})'.format(lang=self._lang)),   # TODO(ivan): cahnge to lang_obj.native_name
             description=self._("EngageNY Common Core Curriculum Content, ELA and CCSSM combined."),
             language=self._lang,
             thumbnail='./content/engageny_logo.png',
@@ -781,7 +781,7 @@ class EngageNYChef(JsonTreeChef):
 
         # Build a Ricecooker tree from scraping process
         ricecooker_json_tree = self._build_scraping_json_tree(web_resource_tree)
-        self._logger.info(f'Finished building {json_tree_path}')
+        self._logger.info('Finished building {json_tree_path}'.format(json_tree_path=json_tree_path))
 
         # Write out ricecooker_json_tree_{lang_code}.json
         write_tree_to_json_tree(json_tree_path, ricecooker_json_tree)
@@ -800,10 +800,10 @@ class EngageNYChef(JsonTreeChef):
         supported_languages = ', '.join(self.SUPPORTED_LANGUAGES)
         lang = EngageNYChef._get_lang(**options)
         if not lang:
-            print(f'\n`lang` is a required argument, choose from one of: {supported_languages}')
+            print('\n`lang` is a required argument, choose from one of: {}'.format(supported_languages))
             exit(-1)
         if lang not in self.SUPPORTED_LANGUAGES:
-            print(f'\n`{lang}` is not a supported language, try one of: {supported_languages}')
+            print('\n`{lang}` is not a supported language, try one of: {supported_languages}'.format(lang=lang, supported_languages=supported_languages))
             exit(-1)
         self._lang = lang
         translator = translation.Client(target_language=self._lang)
@@ -821,7 +821,7 @@ class EngageNYChef(JsonTreeChef):
             if self.translation_client:
                 self.translation_client.close()
         except Exception as e :
-            self._logger.warn(f'Error happened while disposing: {e}')
+            self._logger.warn('Error happened while disposing: {e}'.format(e))
 
 # endregion Chef
 
