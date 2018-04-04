@@ -56,7 +56,7 @@ class TestCacheDbMethods(unittest.TestCase):
             found, data = self.db.get(str(i % members))
             if not found:
                 key = str(i)
-                self.db.add(key=key, data=f'value_{key}')
+                self.db.add(key=key, data='value_{key}'.format(key=key))
 
         stats = self.db.stats()
         assert stats['misses'] == members

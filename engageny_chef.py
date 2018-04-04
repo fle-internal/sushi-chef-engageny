@@ -820,8 +820,8 @@ class EngageNYChef(JsonTreeChef):
         try:
             if self.translation_client:
                 self.translation_client.close()
-        except Exception as e :
-            self._logger.warn('Error happened while disposing: {e}'.format(e))
+        except Exception as e:
+            self._logger.warn('Error happened while disposing: {e}'.format(e=e))
 
 # endregion Chef
 
