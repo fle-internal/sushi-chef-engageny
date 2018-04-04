@@ -5,7 +5,7 @@ from json import dump
 
 class Db:
     def __init__(self, basedir, lang):
-        self.db_path = join(basedir, f'translation-cache-{lang}')
+        self.db_path = join(basedir, 'translation-cache-{lang}'.format(lang=lang))
         self.db = shelve2.open2(self.db_path)
         self.hits = 0
         self.misses = 0
